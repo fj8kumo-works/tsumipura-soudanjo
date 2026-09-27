@@ -13,6 +13,8 @@
 supabase/
   migrations/001_init.sql     テーブル・権限・関数・集計・Storage の初期設定
   tests/001_init_check.sql    動作確認用SQL(実行してもデータは残らない)
+scripts/
+  hj_import/build_kits_preview.mjs  HJ作例インデックス → kits / kit_aliases のプレビューCSV
 ```
 
 ---
@@ -57,6 +59,23 @@ select id from auth.users where email = 'admin@example.com';
 ### 5. Storage を確認する
 
 **Storage** に `review-images` バケットができていて、Public・2MB・`image/jpeg, image/png, image/webp` になっていればOK。
+
+---
+
+## HJ作例インデックスの取り込み準備(ステップ2-1)
+
+HJ作例インデックス(`data/hj_index_2022-2026.csv`)を、キット単位にまとめたプレビューCSVに変換します。**Supabase には書き込みません。**
+
+```
+node scripts/hj_import/build_kits_preview.mjs [入力CSV] [出力フォルダ]
+```
+
+- 対象は `種別` が「作例」「連載作例」「ジオラマ作例」の行。キット名が空の行は `excluded_rows.csv` に回す
+- 名前(空白・中黒・全角半角などの違いを無視)・メーカー・スケールがすべて一致すれば同じキットとしてまとめ、表記の違いは別名にする
+- 判断に迷うものはまとめずに `needs_review = 要確認` とし、理由を `review_reason` に書く
+  - ガンプラの 1/144・1/100・1/60 は同名でもグレード(HG/RG/EG、MGのVer.)を判別できないため作例ごとに分ける
+  - 型式番号の有無・メーカー不明・スケール不明だけが違う同名キットは「同じキットの可能性」として相手の番号を示す
+- `id` は照合キーから作る UUID v5。同じ入力なら何度実行しても同じ値になり、そのまま `kits.id` に使える
 
 ---
 
