@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>配色の比較</title>
+<!-- 配色を選ぶための一時的な比較ページ。本番の画面(index.html / kit.html)に、案の色だけを差し込んで並べる -->
+<style>
+  body{margin:0;padding:20px;background:#e9e7e3;color:#222;font-family:"Noto Sans JP","Yu Gothic UI","Hiragino Sans",Meiryo,sans-serif}
+  h1{font-size:20px;margin:0 0 4px}
+  .intro{font-size:13px;color:#555;margin:0 0 18px}
+  .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:24px}
+  .col{background:#fff;border-radius:8px;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+  .col h2{font-size:17px;margin:0 0 2px}
+  .col p{font-size:13px;color:#555;margin:0 0 10px}
+  .swatches{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px;padding:0;list-style:none}
+  .swatches li{display:flex;align-items:center;gap:6px;font-size:11.5px;color:#444;border:1px solid #ddd;border-radius:4px;padding:3px 8px 3px 3px}
+  .swatches i{display:block;width:18px;height:18px;border-radius:3px;border:1px solid rgba(0,0,0,.12)}
+  .frame-label{font-size:12px;color:#666;margin:10px 0 4px}
+  iframe{width:100%;height:520px;border:1px solid #ccc;border-radius:6px;background:#fff}
+</style>
+</head>
+<body>
+<h1>配色の比較</h1>
+<p class="intro">本番と同じ画面に、案の色だけを当てています(書体は Noto Sans JP で共通)。文字の読みやすさ(コントラスト)は、どちらも本文・補足・ボタンすべて基準の 4.5:1 以上です。</p>
+<div class="cols" id="cols"></div>
+
+<script>
+const PALETTES = {
+  A: {
+    title: '案A 青緑(ティール)',
+    note: 'クリーム色の背景に、落ち着いた青緑を1色。静かで整った印象。',
+    colors: {
+      '--bg': '#FAF7F0', '--masthead-bg': '#FFFDF8', '--panel': '#FFFFFF', '--card': '#FFFFFF',
+      '--spine': '#F3EEE3', '--input-bg': '#FFFFFF', '--line': '#E4DCCB', '--line-soft': '#EDE7DA',
+      '--text': '#2A2622', '--muted': '#6B635A', '--accent': '#0F766E', '--accent-hover': '#0B5F58',
+      '--accent-soft': '#9CCFC9', '--on-accent': '#FFFFFF', '--alert': '#B42318',
+    },
+  },
+  B: {
+    title: '案B 朱色(しゅいろ)',
+    note: '少し黄みのあるクリーム色に、朱色を1色。あたたかく、模型店・和の文具のような印象。',
+    colors: {
+      '--bg': '#FFFBF4', '--masthead-bg': '#FFF6E9', '--panel': '#FFFFFF', '--card': '#FFFFFF',
+      '--spine': '#FBEFDF', '--input-bg': '#FFFFFF', '--line': '#EADBC6', '--line-soft': '#F2E8DA',
+      '--text': '#2D2520', '--muted': '#6E6258', '--accent': '#C2410C', '--accent-hover': '#9A3412',
+      '--accent-soft': '#F2B899', '--on-accent': '#FFFFFF', '--alert': '#B91C1C',
+    },
+  },
+};
+const PAGES = [
+  ['トップ(「エアリアル」で検索)', '../index.html?q=' + encodeURIComponent('エアリアル')],
+  ['キット詳細', '../kit.html?id=1ed22d07-1692-58bc-896e-2981333f61a0'],
+];
+const SHOWN = [['--bg', '背景'], ['--card', 'カード'], ['--line', '枠線'], ['--text', '本文'], ['--muted', '補足'], ['--accent', 'アクセント']];
+
+const cols = document.getElementById('cols');
+for (const [key, p] of Object.entries(PALETTES)) {
+  const col = document.createElement('section');
+  col.className = 'col';
+  col.innerHTML = `<h2></h2><p></p><ul class="swatches"></ul>`;
+  col.querySelector('h2').textContent = p.title;
+  col.querySelector('p').textContent = p.note;
+  const ul = col.querySelector('ul');
+  for (const [v, name] of SHOWN) {
+    const li = document.createElement('li');
+    li.innerHTML = '<i></i><span></span>';
+    li.querySelector('i').style.background = p.colors[v];
+    li.querySelector('span').textContent = `${name} ${p.colors[v]}`;
+    ul.append(li);
+  }
+  for (const [label, src] of PAGES) {
+    const cap = document.createElement('div');
+    cap.className = 'frame-label';
+    cap.textContent = label;
+    const frame = document.createElement('iframe');
+    frame.title = `${p.title} ${label}`;
+    frame.src = src;
+    // 同じサイト内の画面なので、読み込み後に案の色を上書きできる
+    frame.addEventListener('load', () => {
+      const style = frame.contentDocument.createElement('style');
+      style.textContent = `:root{${Object.entries(p.colors).map(([k, v]) => `${k}:${v}`).join(';')}}`;
+      frame.contentDocument.head.append(style);
+    });
+    col.append(cap, frame);
+  }
+  cols.append(col);
+}
+</script>
+</body>
+</html>

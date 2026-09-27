@@ -1,17 +1,26 @@
-/* 積みプラ相談所 共通スタイル(prototype/index.html の見た目を引き継ぐ) */
+/* 積みプラ相談所 共通スタイル */
+
+/* 色はすべてここで決める(下のルールでは色を直接書かない)
+   配色: 案B 朱色(クリーム色の背景 + アクセントは朱色1色)。比較は prototype/palette-compare.html */
 :root{
-  --bg:#100e0c;
-  --panel:#1b1713;
-  --card:#221c16;
-  --line:#3b322a;
-  --line-soft:#2c251e;
-  --text:#ece3d4;
-  --muted:#a4978a;
-  --brass:#d9a441;
-  --brass-soft:#7a5f2c;
-  --alert:#e78066;
-  --font-sans:"Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic","Noto Sans JP",system-ui,sans-serif;
-  --font-serif:"Hiragino Mincho ProN","Yu Mincho","Noto Serif JP",serif;
+  --bg:#FFFBF4;            /* ページの背景 */
+  --masthead-bg:#FFF6E9;   /* ヘッダーの背景 */
+  --panel:#FFFFFF;         /* 検索パネルの背景 */
+  --card:#FFFFFF;          /* カードの背景 */
+  --spine:#FBEFDF;         /* カード左の背表紙 */
+  --input-bg:#FFFFFF;      /* 入力欄の背景 */
+  --line:#EADBC6;          /* 枠線 */
+  --line-soft:#F2E8DA;     /* 薄い枠線 */
+  --text:#2D2520;          /* 本文 */
+  --muted:#6E6258;         /* 補足の文字 */
+  --accent:#C2410C;        /* アクセント(ボタン・リンク・強調) */
+  --accent-hover:#9A3412;  /* ボタンにマウスを乗せたとき */
+  --accent-soft:#F2B899;   /* アクセントの薄い版(カードの枠など) */
+  --on-accent:#FFFFFF;     /* アクセント色の上の文字 */
+  --alert:#B91C1C;         /* エラー */
+
+  /* Noto Sans JP が読み込めないときは、端末の標準ゴシック体で表示する */
+  --font-sans:"Noto Sans JP","Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic UI","Yu Gothic",Meiryo,system-ui,sans-serif;
 }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
@@ -19,89 +28,89 @@ body{
   background:var(--bg);
   color:var(--text);
   font-family:var(--font-sans);
+  font-weight:400;
   font-size:15px;
   line-height:1.75;
   -webkit-font-smoothing:antialiased;
 }
-a{color:var(--brass)}
+a{color:var(--accent)}
 .wrap{max-width:880px;margin:0 auto;padding:0 20px 80px}
 
 /* ---- header ---- */
 .masthead{
   border-bottom:1px solid var(--line);
-  background:linear-gradient(180deg,#191410 0%,var(--bg) 100%);
-  padding:34px 0 26px;
+  background:var(--masthead-bg);
+  padding:30px 0 24px;
   margin-bottom:34px;
 }
 .masthead .wrap{padding-bottom:0}
 .masthead h1{
-  font-family:var(--font-serif);
-  font-size:30px;
-  font-weight:600;
-  letter-spacing:.12em;
-  margin:0 0 6px;
+  font-size:28px;
+  font-weight:700;
+  letter-spacing:.06em;
+  margin:0 0 4px;
 }
 .masthead h1 a{color:inherit;text-decoration:none}
-.masthead p{margin:0;color:var(--muted);font-size:13px;letter-spacing:.04em}
+.masthead p{margin:0;color:var(--muted);font-size:13px;letter-spacing:.02em}
 
 /* ---- panels ---- */
 .panel{
   background:var(--panel);
   border:1px solid var(--line-soft);
-  border-radius:4px;
+  border-radius:6px;
   padding:22px;
   margin-bottom:34px;
 }
 .panel h2,.section-title{
-  font-family:var(--font-serif);
   font-size:17px;
-  font-weight:600;
-  letter-spacing:.08em;
+  font-weight:700;
+  letter-spacing:.04em;
   margin:0 0 4px;
 }
 .lead{color:var(--muted);font-size:13px;margin:0 0 18px}
 
 /* ---- form ---- */
-label{display:block;font-size:12.5px;color:var(--muted);margin-bottom:5px;letter-spacing:.06em}
+label{display:block;font-size:12.5px;font-weight:500;color:var(--muted);margin-bottom:5px;letter-spacing:.04em}
 input[type=search]{
   width:100%;
-  background:#141110;
+  background:var(--input-bg);
   border:1px solid var(--line);
-  border-radius:3px;
+  border-radius:4px;
   color:var(--text);
   font-family:inherit;
   font-size:16px;
   padding:10px 12px;
 }
-input:focus{outline:2px solid var(--brass);outline-offset:1px;border-color:transparent}
-:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+input:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:transparent}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .search-row{display:flex;gap:10px}
 .search-row input{flex:1}
 
 button{font-family:inherit;cursor:pointer}
 .btn{
-  background:var(--brass);
-  color:#1a1408;
+  background:var(--accent);
+  color:var(--on-accent);
   border:none;
-  border-radius:3px;
+  border-radius:4px;
   font-size:14px;
   font-weight:700;
-  letter-spacing:.06em;
+  letter-spacing:.04em;
   padding:10px 20px;
   white-space:nowrap;
 }
-.btn:hover{background:#e9b455}
+.btn:hover{background:var(--accent-hover)}
 .btn-ghost{
   display:inline-block;
   background:transparent;
   color:var(--text);
   border:1px solid var(--line);
-  border-radius:3px;
+  border-radius:4px;
   font-size:13px;
+  font-weight:500;
   padding:7px 14px;
   text-decoration:none;
 }
-.btn-ghost:hover{border-color:var(--brass);color:var(--brass)}
+.btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
 
 .note{color:var(--muted);font-size:12px;margin:8px 0 0}
 .error{color:var(--alert);font-size:13.5px;margin:10px 0 0}
@@ -114,41 +123,40 @@ button{font-family:inherit;cursor:pointer}
   grid-template-columns:30px 1fr;
   background:var(--card);
   border:1px solid var(--line-soft);
-  border-radius:4px;
+  border-radius:6px;
   overflow:hidden;
   color:inherit;
   text-decoration:none;
 }
-.kit-card:hover,.kit-card:focus-visible{border-color:var(--brass-soft)}
+.kit-card:hover,.kit-card:focus-visible{border-color:var(--accent-soft)}
 .kit-card .spine{
   writing-mode:vertical-rl;
   display:flex;align-items:center;justify-content:center;
-  background:linear-gradient(90deg,#2b231b,#1e1913);
+  background:var(--spine);
   border-right:1px solid var(--line);
-  font-size:11px;letter-spacing:.14em;color:var(--muted);
+  font-size:11px;font-weight:500;letter-spacing:.1em;color:var(--muted);
 }
 .kit-card .body{padding:14px 16px 13px;min-width:0}
 .kit-card h3{
-  font-family:var(--font-serif);
-  font-size:16px;font-weight:600;margin:0 0 4px;line-height:1.5;
+  font-size:15.5px;font-weight:500;margin:0 0 4px;line-height:1.55;
   overflow-wrap:anywhere;
 }
 .kit-card .maker{color:var(--muted);font-size:12.5px;margin:0}
-.kit-card .hit{color:var(--brass);font-size:12px;margin:6px 0 0}
+.kit-card .hit{color:var(--accent);font-size:12px;font-weight:500;margin:6px 0 0}
 
 /* ---- detail ---- */
 .topbar{display:flex;align-items:center;gap:14px;margin-bottom:22px}
-.kit-head{border-left:3px solid var(--brass);padding-left:16px;margin-bottom:28px}
-.kit-head h2{font-family:var(--font-serif);font-size:23px;font-weight:600;margin:0 0 6px;letter-spacing:.04em;overflow-wrap:anywhere}
+.kit-head{border-left:3px solid var(--accent);padding-left:16px;margin-bottom:28px}
+.kit-head h2{font-size:22px;font-weight:700;margin:0 0 6px;letter-spacing:.02em;line-height:1.5;overflow-wrap:anywhere}
 .spec{display:grid;grid-template-columns:auto 1fr;gap:6px 20px;margin:0;font-size:14.5px}
-.spec dt{color:var(--muted);font-size:13px}
+.spec dt{color:var(--muted);font-size:13px;font-weight:500}
 .spec dd{margin:0}
 .spec .unknown{color:var(--muted)}
 
-.empty{color:var(--muted);font-size:14px;background:var(--card);border:1px dashed var(--line);border-radius:4px;padding:22px;text-align:center}
+.empty{color:var(--muted);font-size:14px;background:var(--card);border:1px dashed var(--line);border-radius:6px;padding:22px;text-align:center}
 
 [hidden]{display:none !important}
 @media (max-width:520px){
-  .masthead h1{font-size:25px}
+  .masthead h1{font-size:24px}
   .wrap{padding:0 16px 60px}
 }
