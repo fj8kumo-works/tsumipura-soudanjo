@@ -4,20 +4,31 @@
 //   node scripts/hj_import/build_kits_preview.mjs [入力CSV] [出力フォルダ]
 //   既定: data/hj_index_2022-2026.csv → data/
 //
-// 出力(UTF-8 BOM付き。Excelでそのまま開ける):
-//   kits_preview.csv     キット単位(1行=1キット)
-//   aliases_preview.csv  キットの別名(表記ゆれ)
-//   excluded_rows.csv    キット名が空で取り込めない作例
+// 読み込むもの:
+//   入力CSV                               HJ作例インデックス
+//   scripts/hj_import/maker_aliases.csv   メーカー表記の対応表(表記,統一名)
+//   <出力フォルダ>/review_same.csv         前回出力した「同じキットの可能性」の確認結果
+//                                          (「まとめる」列が ○ の組を統合する)
 //
-// Supabase には一切書き込まない。何度実行しても同じ入力なら同じ結果になる
+// 出力(UTF-8 BOM付き。Excelでそのまま開ける):
+//   kits_preview.csv     取り込むキット(1行=1キット)
+//   aliases_preview.csv  キットの別名(表記ゆれ)
+//   excluded_rows.csv    取り込まない作例と理由
+//   review_same.csv      同じキットの可能性がある組(「まとめる」列は前回の記入を引き継ぐ)
+//
+// Supabase には一切書き込まない。同じ入力なら何度実行しても同じ結果になる
 // (id はキーから作る UUID v5 なので、再実行しても変わらない)。
 
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { fileURLToPath } from 'node:url';
 
+const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const INPUT = process.argv[2] ?? 'data/hj_index_2022-2026.csv';
 const OUT_DIR = process.argv[3] ?? 'data';
+const MAKER_ALIASES = path.join(SCRIPT_DIR, 'maker_aliases.csv');
+const REVIEW_SAME = path.join(OUT_DIR, 'review_same.csv');
 
 const TARGET_TYPES = new Set(['作例', '連載作例', 'ジオラマ作例']);
 
@@ -27,27 +38,27 @@ const LIMIT = { name: 100, maker: 50, scale: 20, source_ref: 200, alias: 100 };
 // id 用の固定名前空間(変えると全キットの id が変わるので変更しないこと)
 const ID_NAMESPACE = '3b0f7c1e-6a52-4c1e-9d0e-5f2a7c4b8e11';
 
-// メーカー表記の統一(照合用。表示は元の表記の最頻値を使う)
-const MAKER_CANON = new Map([
-  ['バンダイ', 'BANDAI SPIRITS'],
-  ['アオシマ', '青島文化教材社'],
-  ['アオシマ文化教材社', '青島文化教材社'],
-  ['フジミ', 'フジミ模型'],
-  ['ゲッコーモデル', 'ゲッコー・モデル'],
-  ['コータリ', 'コータリモデルス'],
-  ['コータリモデル', 'コータリモデルス'],
-  ['ドイツレベル', 'レベル'],
-  ['プラッツ/BEEMAX', 'プラッツ/BEEMAX'],
-  ['BEEMAX', 'プラッツ/BEEMAX'],
-]);
+// 「まとめる」列でこれらが入っていれば統合する
+const MERGE_MARKS = new Set(['○', '〇', '◯', 'o', 'O', 'ｏ', 'Ｏ']);
 
-// キットではない(作品名・自作)可能性が高いメーカー欄
+// 取り込まない作例の判定
 const SCRATCH_MAKER = /スクラッチ/;
 // 模型メーカーではなく版元・権利元と思われるもの
 const NON_KIT_MAKER = new Set(['小学館', 'KADOKAWA', '東宝', 'スクウェア・エニックス',
   'バンダイナムコフィルムワークス', 'Kishikawa Edit Office,Inc.', 'マテル']);
 
 // ---------------------------------------------------------------- CSV
+
+// Excel で保存し直すと Shift_JIS になることがあるので両方読めるようにする
+function readText(file) {
+  const buf = fs.readFileSync(file);
+  if (buf[0] === 0xef && buf[1] === 0xbb && buf[2] === 0xbf) return buf.subarray(3).toString('utf8');
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(buf);
+  } catch {
+    return new TextDecoder('shift_jis').decode(buf);
+  }
+}
 
 function parseCsv(text) {
   const rows = [];
@@ -64,7 +75,13 @@ function parseCsv(text) {
     else field += c;
   }
   if (field || row.length) { row.push(field); rows.push(row); }
-  return rows;
+  return rows.filter((r) => r.some((v) => v.trim()));
+}
+
+// 1行目を見出しとしてオブジェクトの配列にする
+function readCsvObjects(file) {
+  const [header, ...body] = parseCsv(readText(file));
+  return { header, rows: body.map((r) => Object.fromEntries(header.map((h, i) => [h, (r[i] ?? '').trim()]))) };
 }
 
 function toCsv(header, records) {
@@ -90,12 +107,23 @@ function normName(s) {
     .replace(/[\s・=.]/g, '');
 }
 
-function normMaker(s) {
-  const m = s.normalize('NFKC').replace(/\s*[／/]\s*/g, '/').trim();
-  return MAKER_CANON.get(m) ?? m;
+// メーカーの対応表(表記 → 統一名)
+const makerMap = new Map();
+for (const r of readCsvObjects(MAKER_ALIASES).rows) {
+  if (r['表記'] && r['統一名']) makerMap.set(cleanMaker(r['表記']), cleanMaker(r['統一名']));
 }
 
-function normScale(s) {
+function cleanMaker(s) {
+  return s.normalize('NFKC').replace(/\s*\/\s*/g, '/').replace(/\s+/g, ' ').trim();
+}
+
+// 表示にも使う統一後のメーカー名
+function unifyMaker(s) {
+  const m = cleanMaker(s);
+  return makerMap.get(m) ?? m;
+}
+
+function cleanScale(s) {
   return s.normalize('NFKC').replace(/\s/g, '');
 }
 
@@ -157,61 +185,67 @@ function mostFrequent(values) {
   return best;
 }
 
+const sortRef = (a, b) => (a.issue + a.page).localeCompare(b.issue + b.page);
+
 // ---------------------------------------------------------------- 読み込み
 
-const [header, ...body] = parseCsv(fs.readFileSync(INPUT, 'utf8').replace(/^﻿/, ''));
-const col = (name) => {
-  const i = header.indexOf(name);
-  if (i < 0) throw new Error(`列「${name}」がありません: ${header.join(',')}`);
-  return i;
-};
-const C = {
-  issue: col('号'), page: col('ページ'), corner: col('コーナー'), title: col('記事タイトル'),
-  name: col('キット名'), maker: col('メーカー'), scale: col('スケール'),
-  builder: col('制作者'), type: col('種別'), note: col('備考'),
-};
-
-const all = body.filter((r) => r.length > 1).map((r) => ({
-  issue: r[C.issue].trim(), page: r[C.page].trim(), corner: r[C.corner].trim(),
-  title: r[C.title].trim(), name: r[C.name].trim(), maker: r[C.maker].trim(),
-  scale: r[C.scale].trim(), builder: r[C.builder].trim(), type: r[C.type].trim(),
-  note: r[C.note].trim(),
+const { header, rows: raw } = readCsvObjects(INPUT);
+for (const c of ['号', 'ページ', '記事タイトル', 'キット名', 'メーカー', 'スケール', '制作者', '種別', '備考']) {
+  if (!header.includes(c)) throw new Error(`列「${c}」がありません: ${header.join(',')}`);
+}
+const all = raw.map((r) => ({
+  issue: r['号'], page: r['ページ'], title: r['記事タイトル'], name: r['キット名'],
+  rawMaker: r['メーカー'], maker: unifyMaker(r['メーカー']), scale: cleanScale(r['スケール']),
+  builder: r['制作者'], type: r['種別'], note: r['備考'],
 }));
 const works = all.filter((r) => TARGET_TYPES.has(r.type));
-const excluded = works.filter((r) => !r.name);
-const usable = works.filter((r) => r.name);
+
+// ---------------------------------------------------------------- 取り込まない作例
+
+function excludeReasons(r) {
+  const reasons = [];
+  if (!r.name) reasons.push('キット名が空');
+  if (SCRATCH_MAKER.test(r.maker)) reasons.push('スクラッチビルド');
+  if (NON_KIT_MAKER.has(r.maker)) reasons.push('メーカー欄が版元・権利元の可能性');
+  if (/[!！]|^[「『]/.test(r.name)) reasons.push('キット名が作品タイトルの可能性');
+  return reasons;
+}
+
+const excluded = [];
+const usable = [];
+for (const r of works) {
+  const reasons = excludeReasons(r);
+  if (reasons.length) excluded.push({ ...r, reason: reasons.join(' / ') });
+  else usable.push(r);
+}
 
 // ---------------------------------------------------------------- まとめる
 
-// 同じキットとみなす条件: 正規化した名前・メーカー・スケールがすべて一致
-// ただし「確認が必要な作例」(複数キット・メーカー不明・スクラッチ等)は他とまとめない
-function rowReasons(r) {
+// 取り込むが要確認として残す理由
+function reviewReasons(r) {
   const reasons = [];
   if (looksMulti(r)) reasons.push('1作例に複数キットの可能性');
-  if (r.type === 'ジオラマ作例') reasons.push('ジオラマ作例(キット名が作品名の可能性)');
-  else if (/[!！]|^[「『]/.test(r.name)) reasons.push('キット名が作品タイトルの可能性');
   if (!r.maker) reasons.push('メーカー不明');
-  else if (SCRATCH_MAKER.test(r.maker)) reasons.push('スクラッチビルド(市販キットでない可能性)');
-  else if (NON_KIT_MAKER.has(r.maker)) reasons.push('メーカー欄が版元・権利元の可能性');
   if (r.name.length > LIMIT.name) reasons.push(`名前が${LIMIT.name}文字超`);
   if (r.maker.length > LIMIT.maker) reasons.push(`メーカーが${LIMIT.maker}文字超`);
   if (r.scale.length > LIMIT.scale) reasons.push(`スケールが${LIMIT.scale}文字超`);
   return reasons;
 }
 
+// 同じキットとみなす条件: 正規化した名前・メーカー・スケールがすべて一致
+// ただし要確認の作例は他とまとめない(ページで区別)
 const groups = new Map();
 for (const r of usable) {
   r.grade = detectGrade(r.name, r.note, r.title);
-  r.reasons = rowReasons(r);
-  const key = [normName(r.name), normMaker(r.maker), normScale(r.scale)].join('|');
-  // 要確認の作例は単独のキットにする(ページで区別)
+  r.reasons = reviewReasons(r);
+  const key = [normName(r.name), r.maker, r.scale].join('|');
   const gkey = r.reasons.length ? `${key}|#${r.issue}-${r.page}-${r.name}` : key;
   if (!groups.has(gkey)) groups.set(gkey, { key: gkey, rows: [] });
   groups.get(gkey).rows.push(r);
 }
 
 // ガンプラの 1/144・1/100・1/60 は、グレードが全作例で同じと分かる場合だけまとめる。
-// 分からなければ作例ごとに分けて要確認(後で kits.merged_into で統合できる)
+// 分からなければ作例ごとに分けて要確認(review_same.csv で統合を判断する)
 const GRADE_UNKNOWN = 'ガンプラのグレード・版を判別できない(HG/RG/EG、MGのVer.違い等)';
 for (const [gkey, g] of [...groups]) {
   const [, maker, scale] = gkey.split('|');
@@ -226,62 +260,122 @@ for (const [gkey, g] of [...groups]) {
   }
 }
 
-const sortRef = (a, b) => (a.issue + a.page).localeCompare(b.issue + b.page);
-const kits = [...groups.values()].map((g) => {
+// 統合前のキット(以降「元キット」)。id は統合しても変わらない照合用
+const baseKits = [...groups.values()].map((g) => {
   g.rows.sort(sortRef);
-  const names = g.rows.map((r) => r.name);
-  const first = g.rows[0];
-  const reasons = new Set(g.rows.flatMap((r) => r.reasons));
-  const grades = [...new Set(g.rows.map((r) => r.grade).filter(Boolean))];
-  if (grades.length > 1) reasons.add(`グレード違いの可能性(${grades.join('/')})`);
-  return {
-    key: g.key,
-    rows: g.rows,
-    first,
-    name: mostFrequent(names),
-    names: [...new Set(names)],
-    maker: mostFrequent(g.rows.map((r) => r.maker)),
-    scale: mostFrequent(g.rows.map((r) => r.scale)),
-    grades,
-    reasons,
-    similar: new Set(),
-  };
+  return { key: g.key, id: uuidV5(`hj:${g.key}`, ID_NAMESPACE), rows: g.rows };
 });
-kits.sort((a, b) => sortRef(a.first, b.first) || a.name.localeCompare(b.name));
-kits.forEach((k, i) => {
-  k.no = `HJ-${String(i + 1).padStart(4, '0')}`;
-  k.id = uuidV5(`hj:${k.key}`, ID_NAMESPACE);
-});
+baseKits.sort((a, b) => sortRef(a.rows[0], b.rows[0]) || a.key.localeCompare(b.key));
+const baseById = new Map(baseKits.map((k) => [k.id, k]));
 
-// 似ているが自動ではまとめなかったもの → 双方に要確認
-//   型式番号の有無・メーカー不明・スケール不明の違いだけで名前が同じもの、
-//   グレード不明で作例ごとに分けた同名キット
+const describe = (k) => {
+  const r = k.rows[0];
+  return [mostFrequent(k.rows.map((x) => x.name)), r.maker || '(メーカー不明)', r.scale || '(スケール不明)'].join(' / ');
+};
+
+// ---------------------------------------------------------------- 同じキットの可能性
+
+// 型式番号の有無・メーカー不明・スケール不明の違いだけで名前が同じもの、
+// グレード不明で作例ごとに分けた同名キット
 const byLoose = new Map();
-for (const k of kits) {
-  for (const n of k.names) {
+for (const k of baseKits) {
+  for (const n of new Set(k.rows.map((r) => r.name))) {
     const lk = normName(stripModelCode(n));
     if (!byLoose.has(lk)) byLoose.set(lk, new Set());
     byLoose.get(lk).add(k);
   }
 }
 const compatible = (a, b) => !a || !b || a === b;
+const pairKey = (a, b) => [a.id, b.id].sort().join('+');
+const pairs = new Map();
 for (const set of byLoose.values()) {
   const list = [...set];
   for (let i = 0; i < list.length; i++) {
     for (let j = i + 1; j < list.length; j++) {
-      const a = list[i], b = list[j];
-      if (!compatible(normMaker(a.maker), normMaker(b.maker))) continue;
-      if (!compatible(normScale(a.scale), normScale(b.scale))) continue;
+      const [a, b] = [list[i], list[j]].sort((x, y) => baseKits.indexOf(x) - baseKits.indexOf(y));
+      if (!compatible(a.rows[0].maker, b.rows[0].maker)) continue;
+      if (!compatible(a.rows[0].scale, b.rows[0].scale)) continue;
       // 型式番号が両方あって違う(例: KV-1 継続高校 / BT-42 継続高校)なら別物
-      if (!compatible(modelCode(a.name), modelCode(b.name))) continue;
-      a.similar.add(b); b.similar.add(a);
+      if (!compatible(modelCode(a.rows[0].name), modelCode(b.rows[0].name))) continue;
+      pairs.set(pairKey(a, b), { a, b, mark: '' });
     }
   }
 }
-for (const k of kits) {
-  if (k.similar.size) {
-    k.reasons.add(`同じキットの可能性: ${[...k.similar].map((s) => s.no).sort().join(' ')}`);
+
+// 前回の review_same.csv の記入を引き継ぐ(候補から消えた組の記入も捨てずに残す)
+const orphanMarks = [];
+if (fs.existsSync(REVIEW_SAME)) {
+  for (const r of readCsvObjects(REVIEW_SAME).rows) {
+    const mark = r['まとめる'] ?? '';
+    const a = baseById.get(r['id_A']), b = baseById.get(r['id_B']);
+    if (a && b && pairs.has(pairKey(a, b))) pairs.get(pairKey(a, b)).mark = mark;
+    else if (a && b && MERGE_MARKS.has(mark)) pairs.set(pairKey(a, b), { a, b, mark }); // 手で追加した組も有効
+    else if (mark) orphanMarks.push(r);
   }
+}
+
+// ○ の組を統合(A=B, B=C なら A・B・C を1つに)
+const parent = new Map(baseKits.map((k) => [k.id, k.id]));
+const find = (id) => (parent.get(id) === id ? id : find(parent.get(id)));
+for (const p of pairs.values()) {
+  if (!MERGE_MARKS.has(p.mark)) continue;
+  const [ra, rb] = [find(p.a.id), find(p.b.id)];
+  // 先に出てきた方の id を残す
+  if (ra !== rb) {
+    if (baseKits.indexOf(baseById.get(ra)) < baseKits.indexOf(baseById.get(rb))) parent.set(rb, ra);
+    else parent.set(ra, rb);
+  }
+}
+
+// ---------------------------------------------------------------- キットを確定
+
+const merged = new Map();
+for (const k of baseKits) {
+  const root = find(k.id);
+  if (!merged.has(root)) merged.set(root, { id: root, members: [] });
+  merged.get(root).members.push(k);
+}
+
+const kits = [...merged.values()].map((m) => {
+  const rows = m.members.flatMap((k) => k.rows).sort(sortRef);
+  const names = rows.map((r) => r.name);
+  const nonEmpty = (vals) => vals.filter(Boolean);
+  const reasons = new Set(rows.flatMap((r) => r.reasons));
+  const grades = [...new Set(rows.map((r) => r.grade).filter(Boolean))];
+  if (grades.length > 1) reasons.add(`グレード違いの可能性(${grades.join('/')})`);
+  const makers = nonEmpty(rows.map((r) => r.maker));
+  const scales = nonEmpty(rows.map((r) => r.scale));
+  // 統合してメーカー・スケールがそろったら、分けた理由の要確認は外す
+  if (m.members.length > 1) {
+    reasons.delete(GRADE_UNKNOWN);
+    if (makers.length) reasons.delete('メーカー不明');
+  }
+  if (new Set(makers).size > 1 || new Set(scales).size > 1) reasons.add('統合した作例でメーカーかスケールが違う');
+  return {
+    id: m.id,
+    members: m.members,
+    rows,
+    name: mostFrequent(names),
+    names: [...new Set(names)],
+    maker: makers.length ? mostFrequent(makers) : '',
+    scale: scales.length ? mostFrequent(scales) : '',
+    grades,
+    reasons,
+  };
+});
+kits.sort((a, b) => sortRef(a.rows[0], b.rows[0]) || a.id.localeCompare(b.id));
+kits.forEach((k, i) => { k.no = `HJ-${String(i + 1).padStart(4, '0')}`; });
+const kitOfBase = new Map(kits.flatMap((k) => k.members.map((b) => [b.id, k])));
+
+// 未記入の組が残っていれば「同じキットの可能性」を付ける
+for (const p of pairs.values()) {
+  const ka = kitOfBase.get(p.a.id), kb = kitOfBase.get(p.b.id);
+  if (p.mark || ka === kb) continue;
+  ka.similar ??= new Set(); kb.similar ??= new Set();
+  ka.similar.add(kb.no); kb.similar.add(ka.no);
+}
+for (const k of kits) {
+  if (k.similar) k.reasons.add(`同じキットの可能性: ${[...k.similar].sort().join(' ')}(review_same.csv)`);
 }
 
 // ---------------------------------------------------------------- 出力
@@ -301,6 +395,9 @@ function sourceRef(rows) {
   return out;
 }
 
+const workRefs = (rows) => rows.map((r) =>
+  `${r.issue} p.${r.page} ${r.name}${r.builder ? `(${r.builder})` : ''}`).join(' | ');
+
 const kitRecords = kits.map((k) => ({
   no: k.no,
   id: k.id,
@@ -313,19 +410,35 @@ const kitRecords = kits.map((k) => ({
   review_reason: [...k.reasons].join(' / '),
   work_count: k.rows.length,
   grade_hint: k.grades.join('/'),
-  works_detail: k.rows.map((r) =>
-    `${r.issue} p.${r.page} ${r.name}${r.builder ? `(${r.builder})` : ''}`).join(' | '),
+  works_detail: workRefs(k.rows),
 }));
 
 const aliasRecords = [];
 for (const k of kits) {
-  const seen = new Set([k.name]);
   for (const n of k.names) {
-    if (seen.has(n)) continue;
-    seen.add(n);
+    if (n === k.name) continue;
     aliasRecords.push({ kit_no: k.no, kit_id: k.id, kit_name: k.name, alias: n });
   }
 }
+
+const excludedRecords = excluded.sort(sortRef).map((r) => ({
+  issue: r.issue, page: r.page, type: r.type, kit_name: r.name, maker: r.rawMaker,
+  scale: r.scale, title: r.title, builder: r.builder, note: r.note, reason: r.reason,
+}));
+
+const reviewRecords = [...pairs.values()]
+  .sort((x, y) => baseKits.indexOf(x.a) - baseKits.indexOf(y.a) || baseKits.indexOf(x.b) - baseKits.indexOf(y.b))
+  .map((p) => ({
+    '候補A': describe(p.a),
+    '候補B': describe(p.b),
+    '作例の号': `A: ${p.a.rows.map((r) => `${r.issue} p.${r.page}`).join(', ')} / B: ${p.b.rows.map((r) => `${r.issue} p.${r.page}`).join(', ')}`,
+    'まとめる': p.mark,
+    'キット番号': `${kitOfBase.get(p.a.id).no} / ${kitOfBase.get(p.b.id).no}`,
+    'id_A': p.a.id,
+    'id_B': p.b.id,
+  }));
+// 候補から消えた組の記入も失わないよう末尾に残す
+for (const r of orphanMarks) reviewRecords.push({ ...r, 'キット番号': '(候補から消えた組)' });
 
 fs.mkdirSync(OUT_DIR, { recursive: true });
 fs.writeFileSync(path.join(OUT_DIR, 'kits_preview.csv'), toCsv(
@@ -334,27 +447,35 @@ fs.writeFileSync(path.join(OUT_DIR, 'kits_preview.csv'), toCsv(
 fs.writeFileSync(path.join(OUT_DIR, 'aliases_preview.csv'), toCsv(
   ['kit_no', 'kit_id', 'kit_name', 'alias'], aliasRecords));
 fs.writeFileSync(path.join(OUT_DIR, 'excluded_rows.csv'), toCsv(
-  ['issue', 'page', 'title', 'type', 'note'], excluded));
+  ['issue', 'page', 'type', 'kit_name', 'maker', 'scale', 'title', 'builder', 'note', 'reason'],
+  excludedRecords));
+fs.writeFileSync(REVIEW_SAME, toCsv(
+  ['候補A', '候補B', '作例の号', 'まとめる', 'キット番号', 'id_A', 'id_B'], reviewRecords));
 
 // ---------------------------------------------------------------- 集計
 
-const reviewKits = kitRecords.filter((k) => k.needs_review);
-const reasonCount = new Map();
-for (const k of kits) {
-  for (const r of k.reasons) {
-    const label = r.replace(/:.*$/, '').replace(/\(.*\)$/, '');
-    reasonCount.set(label, (reasonCount.get(label) ?? 0) + 1);
-  }
-}
+const count = (list, labelOf) => {
+  const m = new Map();
+  for (const x of list) for (const l of labelOf(x)) m.set(l, (m.get(l) ?? 0) + 1);
+  return [...m].sort((a, b) => b[1] - a[1]);
+};
+const reviewKits = kits.filter((k) => k.reasons.size);
+const marked = [...pairs.values()].filter((p) => MERGE_MARKS.has(p.mark)).length;
 console.log(`入力全行               : ${all.length}`);
-console.log(`対象の作例(${[...TARGET_TYPES].join('・')}): ${works.length}`);
-for (const t of TARGET_TYPES) console.log(`  ${t}: ${works.filter((r) => r.type === t).length}`);
-console.log(`  うちキット名が空で除外: ${excluded.length}`);
-console.log(`まとめた後のキット数   : ${kits.length}`);
+console.log(`対象の作例             : ${works.length}(${[...TARGET_TYPES].map((t) => `${t} ${works.filter((r) => r.type === t).length}`).join('・')})`);
+console.log(`除外した作例           : ${excluded.length}`);
+for (const [l, n] of count(excluded, (r) => r.reason.split(' / '))) console.log(`    ${l}: ${n}`);
+console.log(`取り込む作例           : ${usable.length}`);
+console.log(`取り込むキット数       : ${kits.length}`);
 console.log(`  2作例以上をまとめたキット: ${kits.filter((k) => k.rows.length > 1).length}`);
-console.log(`  要確認                   : ${reviewKits.length}`);
-for (const [label, n] of [...reasonCount].sort((a, b) => b[1] - a[1])) console.log(`    ${label}: ${n}`);
+console.log(`  review_same.csv で統合    : ${marked}組`);
+console.log(`  要確認(needs_review)     : ${reviewKits.length}`);
+for (const [l, n] of count(reviewKits, (k) => [...k.reasons].map((r) => r.replace(/[::].*$/, '').replace(/\(.*\)$/, '')))) {
+  console.log(`    ${l}: ${n}`);
+}
 console.log(`別名                   : ${aliasRecords.length}`);
-console.log(`メーカー空のキット     : ${kitRecords.filter((k) => !k.maker).length}`);
-console.log(`スケール空のキット     : ${kitRecords.filter((k) => !k.scale).length}`);
-console.log(`出力: ${path.join(OUT_DIR, 'kits_preview.csv')}, aliases_preview.csv, excluded_rows.csv`);
+console.log(`review_same.csv        : ${reviewRecords.length}行(記入済み ${reviewRecords.filter((r) => r['まとめる']).length})`);
+console.log(`メーカー空 / スケール空のキット: ${kits.filter((k) => !k.maker).length} / ${kits.filter((k) => !k.scale).length}`);
+const unmapped = count(kits, (k) => [k.maker]).filter(([m]) => m);
+console.log(`メーカーの種類         : ${unmapped.length}(対応表 ${makerMap.size}件を適用)`);
+console.log(`出力先: ${OUT_DIR}`);
