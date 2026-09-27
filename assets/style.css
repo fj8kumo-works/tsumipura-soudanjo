@@ -113,7 +113,20 @@ button{font-family:inherit;cursor:pointer}
 .btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
 
 .note{color:var(--muted);font-size:12px;margin:8px 0 0}
-.error{color:var(--alert);font-size:13.5px;margin:10px 0 0}
+.error{
+  color:var(--text);
+  font-size:13.5px;
+  margin:12px 0 0;
+  padding:12px 14px;
+  background:var(--card);
+  border:1px solid var(--alert);
+  border-left-width:4px;
+  border-radius:4px;
+}
+.error p{margin:0}
+.error .error-what{color:var(--alert);font-weight:700}
+.error .error-how{margin-top:4px}
+.error .btn-ghost{margin-top:10px}
 .status{color:var(--muted);font-size:13px;margin:0 0 14px;min-height:1.75em}
 
 /* ---- kit cards ---- */

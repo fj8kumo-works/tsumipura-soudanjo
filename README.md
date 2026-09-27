@@ -166,6 +166,13 @@ node scripts/hj_import/verify_import.mjs               件数・別名検索・�
 - `.nojekyll` を置いているので、ファイルはそのままの形で公開される
 - リポジトリは Public なので、`scripts/`・`supabase/`・`prototype/` もサイトのURLから見える。**秘密の値(.env、service_role キー)と data/ はリポジトリに入れない**
 
+### アプリ内ブラウザ(X など)で確実に動かすために
+
+- 画面は supabase-js を使わず、ブラウザ標準の `fetch` で REST API を直接呼ぶ(`assets/api.js`)。特別なヘッダーを付けない GET だけにして、キーは URL の `apikey=` で渡す。こうすると CORS の事前確認(preflight)が起きない。以前は supabase-js が付けるヘッダーのせいで毎回事前確認が起きていた。Claude アプリ内ブラウザで「検索しています…」のまま止まったのは、これが原因と考えられる(返事が来ないまま待ち続ける作りだった)
+- 通信は10秒で打ち切り、「何が起きたか / どうすれば直るか」を表示する(`assets/ui.js`)。画面のファイル自体が読み込めないときも、10秒後に `assets/boot.js` が案内を出す
+- フォント(Google Fonts)は読み込みを待たずに画面を出す
+- 画面のファイルを直したら、`index.html`・`kit.html` と `assets/ui.js` の `?v=` の数字を上げる(古いファイルが残らないように)。`api.js` と `ui.js` の `?v=` は必ずそろえる
+
 ---
 
 ## キットの名前修正・統合(管理画面ができるまでのつなぎ)
@@ -235,6 +242,8 @@ node scripts/admin/apply_kit_corrections.mjs --apply    書き込む
 ---
 
 ## 画面を作るときの注意(ステップ2以降向け)
+
+> 下の例は supabase-js の書き方。今の画面は supabase-js を使わず `assets/api.js` の fetch で読み出している(上の「アプリ内ブラウザ」参照)。書き込み(レビュー投稿など)を作るときも、アプリ内ブラウザで動くかを確認すること
 
 - **reviews を読むときは列を指定する**。`select('*')` は `device_id` を含むので匿名では権限エラーになります
   ```js
