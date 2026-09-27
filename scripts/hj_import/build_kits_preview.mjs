@@ -260,13 +260,27 @@ for (const [gkey, g] of [...groups]) {
   }
 }
 
-// 統合前のキット(以降「元キット」)。id は統合しても変わらない照合用
+// id は「最初に載った作例(号・ページ・キット名)」から作る。
+// 照合キー(正規化・メーカー対応表)を変えても、後の号を追加しても変わらない。
+// 統合したキットは、いちばん早い作例を持つ元キットの id になる。
+const workId = (r) => uuidV5(`hj-work:${r.issue}|${r.page}|${r.name}`, ID_NAMESPACE);
+{
+  const seen = new Set();
+  for (const r of usable) {
+    const w = `${r.issue}|${r.page}|${r.name}`;
+    if (seen.has(w)) throw new Error(`号・ページ・キット名が同じ作例が2行あります: ${w}`);
+    seen.add(w);
+  }
+}
+
+// 統合前のキット(以降「元キット」)
 const baseKits = [...groups.values()].map((g) => {
   g.rows.sort(sortRef);
-  return { key: g.key, id: uuidV5(`hj:${g.key}`, ID_NAMESPACE), rows: g.rows };
+  // legacyId: 以前の版の id(照合キーから作っていた)。古い review_same.csv を読むためだけに使う
+  return { key: g.key, id: workId(g.rows[0]), legacyId: uuidV5(`hj:${g.key}`, ID_NAMESPACE), rows: g.rows };
 });
 baseKits.sort((a, b) => sortRef(a.rows[0], b.rows[0]) || a.key.localeCompare(b.key));
-const baseById = new Map(baseKits.map((k) => [k.id, k]));
+const baseById = new Map(baseKits.flatMap((k) => [[k.legacyId, k], [k.id, k]]));
 
 const describe = (k) => {
   const r = k.rows[0];
@@ -314,17 +328,48 @@ if (fs.existsSync(REVIEW_SAME)) {
   }
 }
 
-// ○ の組を統合(A=B, B=C なら A・B・C を1つに)
+// ○ の組を統合(A=B, B=C なら A・B・C を1つに)。
+// ただしメーカー・スケールが違うものが1つにまとまる統合はしない。
+// 例: スケール不明の「νガンダム」に 1/144 とも 1/100 とも ○ があると、
+//     つながって 1/144 と 1/100 が1つになってしまうため、その ○ は「矛盾」として保留する
 const parent = new Map(baseKits.map((k) => [k.id, k.id]));
 const find = (id) => (parent.get(id) === id ? id : find(parent.get(id)));
-for (const p of pairs.values()) {
-  if (!MERGE_MARKS.has(p.mark)) continue;
+const attrs = new Map(baseKits.map((k) => [k.id, {
+  makers: new Set([k.rows[0].maker].filter(Boolean)),
+  scales: new Set([k.rows[0].scale].filter(Boolean)),
+}]));
+const unionAttrs = (x, y) => ({
+  makers: new Set([...x.makers, ...y.makers]),
+  scales: new Set([...x.scales, ...y.scales]),
+});
+const consistent = (a) => a.makers.size <= 1 && a.scales.size <= 1;
+const union = (p) => {
   const [ra, rb] = [find(p.a.id), find(p.b.id)];
+  if (ra === rb) return true;
+  const u = unionAttrs(attrs.get(ra), attrs.get(rb));
+  if (!consistent(u)) return false;
   // 先に出てきた方の id を残す
-  if (ra !== rb) {
-    if (baseKits.indexOf(baseById.get(ra)) < baseKits.indexOf(baseById.get(rb))) parent.set(rb, ra);
-    else parent.set(ra, rb);
+  const [keep, drop] = baseKits.indexOf(baseById.get(ra)) < baseKits.indexOf(baseById.get(rb)) ? [ra, rb] : [rb, ra];
+  parent.set(drop, keep);
+  attrs.set(keep, u);
+  return true;
+};
+const known = (k) => k.rows[0].maker && k.rows[0].scale;
+const markedPairs = [...pairs.values()].filter((p) => MERGE_MARKS.has(p.mark));
+// 1) メーカー・スケールが両方分かっている組を先に統合
+for (const p of markedPairs.filter((p) => known(p.a) && known(p.b))) if (!union(p)) p.conflict = true;
+// 2) 不明を含む組: 不明側が別々のメーカー・スケールの相手と ○ なら、その不明側の組はすべて保留
+const rest = markedPairs.filter((p) => !(known(p.a) && known(p.b)));
+const partnerAttrs = new Map();
+for (const p of rest) {
+  for (const [self, other] of [[p.a, p.b], [p.b, p.a]]) {
+    const r = find(self.id);
+    partnerAttrs.set(r, unionAttrs(partnerAttrs.get(r) ?? attrs.get(r), attrs.get(find(other.id))));
   }
+}
+for (const p of rest) {
+  const bad = [p.a, p.b].some((k) => !consistent(partnerAttrs.get(find(k.id))));
+  if (bad || !union(p)) p.conflict = true;
 }
 
 // ---------------------------------------------------------------- キットを確定
@@ -370,12 +415,21 @@ const kitOfBase = new Map(kits.flatMap((k) => k.members.map((b) => [b.id, k])));
 // 未記入の組が残っていれば「同じキットの可能性」を付ける
 for (const p of pairs.values()) {
   const ka = kitOfBase.get(p.a.id), kb = kitOfBase.get(p.b.id);
-  if (p.mark || ka === kb) continue;
+  if (ka === kb) continue;
+  if (p.conflict) {
+    ka.conflict ??= new Set(); kb.conflict ??= new Set();
+    ka.conflict.add(kb.no); kb.conflict.add(ka.no);
+    continue;
+  }
+  if (p.mark) continue;
   ka.similar ??= new Set(); kb.similar ??= new Set();
   ka.similar.add(kb.no); kb.similar.add(ka.no);
 }
 for (const k of kits) {
   if (k.similar) k.reasons.add(`同じキットの可能性: ${[...k.similar].sort().join(' ')}(review_same.csv)`);
+  if (k.conflict) {
+    k.reasons.add(`○が矛盾して統合を保留(メーカーかスケールが違う相手とつながる): ${[...k.conflict].sort().join(' ')}`);
+  }
 }
 
 // ---------------------------------------------------------------- 出力
@@ -411,6 +465,7 @@ const kitRecords = kits.map((k) => ({
   work_count: k.rows.length,
   grade_hint: k.grades.join('/'),
   works_detail: workRefs(k.rows),
+  work_ids: k.rows.map(workId).join(' '),
 }));
 
 const aliasRecords = [];
@@ -433,24 +488,25 @@ const reviewRecords = [...pairs.values()]
     '候補B': describe(p.b),
     '作例の号': `A: ${p.a.rows.map((r) => `${r.issue} p.${r.page}`).join(', ')} / B: ${p.b.rows.map((r) => `${r.issue} p.${r.page}`).join(', ')}`,
     'まとめる': p.mark,
+    '状態': p.conflict ? '矛盾のため保留' : (MERGE_MARKS.has(p.mark) ? '統合済み' : ''),
     'キット番号': `${kitOfBase.get(p.a.id).no} / ${kitOfBase.get(p.b.id).no}`,
     'id_A': p.a.id,
     'id_B': p.b.id,
   }));
 // 候補から消えた組の記入も失わないよう末尾に残す
-for (const r of orphanMarks) reviewRecords.push({ ...r, 'キット番号': '(候補から消えた組)' });
+for (const r of orphanMarks) reviewRecords.push({ ...r, '状態': '候補から消えた組' });
 
 fs.mkdirSync(OUT_DIR, { recursive: true });
 fs.writeFileSync(path.join(OUT_DIR, 'kits_preview.csv'), toCsv(
   ['no', 'id', 'name', 'maker', 'scale', 'source', 'source_ref', 'needs_review',
-    'review_reason', 'work_count', 'grade_hint', 'works_detail'], kitRecords));
+    'review_reason', 'work_count', 'grade_hint', 'works_detail', 'work_ids'], kitRecords));
 fs.writeFileSync(path.join(OUT_DIR, 'aliases_preview.csv'), toCsv(
   ['kit_no', 'kit_id', 'kit_name', 'alias'], aliasRecords));
 fs.writeFileSync(path.join(OUT_DIR, 'excluded_rows.csv'), toCsv(
   ['issue', 'page', 'type', 'kit_name', 'maker', 'scale', 'title', 'builder', 'note', 'reason'],
   excludedRecords));
 fs.writeFileSync(REVIEW_SAME, toCsv(
-  ['候補A', '候補B', '作例の号', 'まとめる', 'キット番号', 'id_A', 'id_B'], reviewRecords));
+  ['候補A', '候補B', '作例の号', 'まとめる', '状態', 'キット番号', 'id_A', 'id_B'], reviewRecords));
 
 // ---------------------------------------------------------------- 集計
 
@@ -460,7 +516,8 @@ const count = (list, labelOf) => {
   return [...m].sort((a, b) => b[1] - a[1]);
 };
 const reviewKits = kits.filter((k) => k.reasons.size);
-const marked = [...pairs.values()].filter((p) => MERGE_MARKS.has(p.mark)).length;
+const marked = markedPairs.length;
+const conflicts = markedPairs.filter((p) => p.conflict).length;
 console.log(`入力全行               : ${all.length}`);
 console.log(`対象の作例             : ${works.length}(${[...TARGET_TYPES].map((t) => `${t} ${works.filter((r) => r.type === t).length}`).join('・')})`);
 console.log(`除外した作例           : ${excluded.length}`);
@@ -468,7 +525,7 @@ for (const [l, n] of count(excluded, (r) => r.reason.split(' / '))) console.log(
 console.log(`取り込む作例           : ${usable.length}`);
 console.log(`取り込むキット数       : ${kits.length}`);
 console.log(`  2作例以上をまとめたキット: ${kits.filter((k) => k.rows.length > 1).length}`);
-console.log(`  review_same.csv で統合    : ${marked}組`);
+console.log(`  review_same.csv で統合    : ${marked - conflicts}組(○が矛盾して保留 ${conflicts}組)`);
 console.log(`  要確認(needs_review)     : ${reviewKits.length}`);
 for (const [l, n] of count(reviewKits, (k) => [...k.reasons].map((r) => r.replace(/[::].*$/, '').replace(/\(.*\)$/, '')))) {
   console.log(`    ${l}: ${n}`);

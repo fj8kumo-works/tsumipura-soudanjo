@@ -16,6 +16,9 @@ supabase/
 scripts/
   hj_import/build_kits_preview.mjs  HJ作例インデックス → kits / kit_aliases のプレビューCSV
   hj_import/maker_aliases.csv       メーカー表記の対応表
+  hj_import/import_to_supabase.mjs  プレビューCSV → Supabase(追加のみ。--apply で書き込み)
+  hj_import/verify_import.mjs       取り込み結果の確認
+  hj_import/supabase.mjs            .env・CSV・Supabase REST の共通処理
 ```
 
 ---
@@ -86,13 +89,41 @@ node scripts/hj_import/build_kits_preview.mjs [入力CSV] [出力フォルダ]
 - 次のものはまとめずに取り込み、`needs_review = 要確認` と理由を `review_reason` に残す
   - ガンプラの 1/144・1/100・1/60(同名でもグレード HG/RG/EG、MGのVer. を判別できないため作例ごとに分ける)
   - 1作例に複数キットの可能性があるもの、メーカー不明のもの
-- `id` は照合キーから作る UUID v5。同じ入力なら何度実行しても同じ値になり、そのまま `kits.id` に使える
+- `id` は「そのキットが最初に載った作例(号・ページ・キット名)」から作る UUID v5。メーカー対応表や正規化を変えても、後の号を追加しても変わらず、そのまま `kits.id` に使える
 
 ### 同じキットの確認(review_same.csv)
 
 1. `data/review_same.csv` を開き、同じキットなら「まとめる」列に `○` を入れて保存する(Excel で Shift_JIS 保存しても読める)
 2. スクリプトを再実行すると ○ の組が1つのキットに統合され、表記の違いは別名になる(A=B、B=C なら3つとも1つに)
-3. 記入は次回の `review_same.csv` に引き継がれる。別物と確認したものは `×` など ○ 以外を入れておくと、要確認から外れる
+3. ただし、つながった結果メーカーかスケールが違うものが1つになる ○ は統合せず、「状態」列に「矛盾のため保留」と出す
+   (例: スケール不明の「νガンダム」に 1/144 とも 1/100 とも ○ を付けた場合)
+4. 記入は次回の `review_same.csv` に引き継がれる。別物と確認したものは `×` など ○ 以外を入れておくと、要確認から外れる
+
+---
+
+## Supabase への取り込み(ステップ2-2)
+
+### 準備: .env
+
+`.env.example` をコピーして `.env` を作り、Supabase ダッシュボード → **Project Settings** → **API** の値を入れる。
+`.env` は `.gitignore` 済み。**service_role キーは RLS を通らないので、リポジトリやブラウザには絶対に出さない。**
+
+### 取り込みと確認
+
+```
+node scripts/hj_import/build_kits_preview.mjs          プレビューCSVを作る
+node scripts/hj_import/import_to_supabase.mjs          確認だけ(書き込まない)
+node scripts/hj_import/import_to_supabase.mjs --apply  kits / kit_aliases に書き込む
+node scripts/hj_import/verify_import.mjs               件数・別名検索・統合の重複を確認(読むだけ)
+```
+
+### 再実行・HJデータの追加について
+
+- 取り込みは**追加だけ**。既にある kits / kit_aliases の行は更新も削除もしない。管理画面で直した名前や `merged_into`、レビュー・押下記録の紐づけはそのまま残る
+- キットの id は最初の作例から決まるので、再実行しても同じキットは同じ id になり、重複しない。新しい号を足せば、新しいキットと別名だけが増える
+- 既存キットに新しい作例が増えても、DB の `source_ref` は更新されない(追加だけのため)
+- 取り込み後に `review_same.csv` で新しく ○ を付けると、統合される側のキットは DB に残る。スクリプトはそれを「merged_into を検討」として表示するだけなので、統合は管理画面の merged_into で行う
+- `excluded_rows.csv` の条件を変えるなどで CSV から消えたキットも、DB からは消さない(「CSV にない」と表示するだけ)
 
 ---
 

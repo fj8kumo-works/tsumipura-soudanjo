@@ -1,2 +1,7 @@
 # HJ目次データと取り込みプレビューは公開しない
 data/
+
+# Supabase のキー(service_role など)。絶対にコミットしない
+.env
+.env.*
+!.env.example
