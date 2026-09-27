@@ -16,7 +16,9 @@ supabase/
   tests/001_init_check.sql    動作確認用SQL(実行してもデータは残らない)
   migrations/003_kit_corrections.sql  検索で中黒・空白を無視 / キット修正・統合用の関数
   tests/002_kit_search_key_check.sql  002 の動作確認用SQL
+  migrations/004_hide_kit_source_ref.sql  kits.source_ref(HJ の号・ページ)を匿名から隠す
   tests/003_kit_corrections_check.sql  003 の動作確認用SQL
+  tests/004_hide_kit_source_ref_check.sql  004 の動作確認用SQL
 scripts/
   hj_import/build_kits_preview.mjs  HJ作例インデックス → kits / kit_aliases のプレビューCSV
   hj_import/maker_aliases.csv       メーカー表記の対応表
@@ -85,6 +87,14 @@ select id from auth.users where email = 'admin@example.com';
 - `admin_apply_kit_correction`(キットの名前修正・統合)ができる。呼べるのは service_role だけ
 - 003 の後は 002 のテストは一部 NG になる(規則が変わるため)。003 のテストで確認する
 
+### 8. HJ の号・ページを公開キーから隠す(004)
+
+1. SQL Editor の New query に `supabase/migrations/004_hide_kit_source_ref.sql` をすべて貼り付けて **Run**(1回だけ)
+2. 続けて `supabase/tests/004_hide_kit_source_ref_check.sql` を貼り付けて **Run**。わざとエラーで終わり、`テスト結果: 13件中 NG 0件` なら OK
+
+- 公開用のキー(anon / publishable)では `kits.source_ref` を読めなくなる。ログインした管理者とスクリプト(service_role)は今まで通り読める
+- 列単位の許可なので、**kits に列を足したら、公開してよい列だけ `grant select (列名) on public.kits to anon;` を行う**。また anon で `select('*')` はエラーになるので、画面では必ず列名を指定する
+
 ---
 
 ## HJ作例インデックスの取り込み準備(ステップ2-1)
@@ -145,6 +155,16 @@ node scripts/hj_import/verify_import.mjs               件数・別名検索・�
 - 既存キットに新しい作例が増えても、DB の `source_ref` は更新されない(追加だけのため)
 - 取り込み後に `review_same.csv` で新しく ○ を付けると、統合される側のキットは DB に残る。スクリプトはそれを「merged_into を検討」として表示するだけなので、統合は管理画面の merged_into で行う
 - `excluded_rows.csv` の条件を変えるなどで CSV から消えたキットも、DB からは消さない(「CSV にない」と表示するだけ)
+
+---
+
+## 公開(GitHub Pages)
+
+- 公開先: https://fj8kumo-works.github.io/tsumipura-soudanjo/
+- 設定: リポジトリの **Settings** → **Pages** で、Source が **Deploy from a branch**、Branch が **main** / **/(root)**
+- `main` に push すると、1〜2分で自動的に公開し直される(公開の状態は **Actions** タブの「pages build and deployment」で見られる)
+- `.nojekyll` を置いているので、ファイルはそのままの形で公開される
+- リポジトリは Public なので、`scripts/`・`supabase/`・`prototype/` もサイトのURLから見える。**秘密の値(.env、service_role キー)と data/ はリポジトリに入れない**
 
 ---
 
