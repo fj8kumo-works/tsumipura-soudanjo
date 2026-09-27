@@ -14,13 +14,16 @@ supabase/
   migrations/001_init.sql     テーブル・権限・関数・集計・Storage の初期設定
   migrations/002_kit_search_key.sql  検索用の列 search_key(表記ゆれ対策)
   tests/001_init_check.sql    動作確認用SQL(実行してもデータは残らない)
+  migrations/003_kit_corrections.sql  検索で中黒・空白を無視 / キット修正・統合用の関数
   tests/002_kit_search_key_check.sql  002 の動作確認用SQL
+  tests/003_kit_corrections_check.sql  003 の動作確認用SQL
 scripts/
   hj_import/build_kits_preview.mjs  HJ作例インデックス → kits / kit_aliases のプレビューCSV
   hj_import/maker_aliases.csv       メーカー表記の対応表
   hj_import/import_to_supabase.mjs  プレビューCSV → Supabase(追加のみ。--apply で書き込み)
   hj_import/verify_import.mjs       取り込み結果の確認
   hj_import/supabase.mjs            .env・CSV・Supabase REST の共通処理
+  admin/apply_kit_corrections.mjs   data/kit_corrections.csv でキットの名前修正・統合(--apply で書き込み)
 ```
 
 ---
@@ -72,6 +75,15 @@ select id from auth.users where email = 'admin@example.com';
 2. 続けて `supabase/tests/002_kit_search_key_check.sql` を貼り付けて **Run**。わざとエラーで終わり、`テスト結果: 17件中 NG 0件` なら OK
 
 `kits` と `kit_aliases` に検索用の列 `search_key` が自動で作られる。ひらがな/カタカナ、全角/半角(Ｆ/F、１/1、／//)、大文字/小文字の違いをそろえた文字列で、画面の検索はこの列で探す。そろえる規則は DB の `public.kit_search_key` と `assets/api.js` の `toSearchKey` で同じにしてあるので、変えるときは両方直す。
+
+### 7. 中黒・空白を無視する検索 / キット修正用の関数(003)
+
+1. SQL Editor の New query に `supabase/migrations/003_kit_corrections.sql` をすべて貼り付けて **Run**(1回だけ。全体が `begin;`〜`commit;` なので、失敗したら何も反映されない)
+2. 続けて `supabase/tests/003_kit_corrections_check.sql` を貼り付けて **Run**。わざとエラーで終わり、`テスト結果: 27件中 NG 0件` なら OK
+
+- `search_key` の規則に「中黒(・)と空白を取り除く」が加わり、「ガンダムエアリアル」でも「ガンダム・エアリアル」でもヒットする。既存の行も計算し直される
+- `admin_apply_kit_correction`(キットの名前修正・統合)ができる。呼べるのは service_role だけ
+- 003 の後は 002 のテストは一部 NG になる(規則が変わるため)。003 のテストで確認する
 
 ---
 
@@ -133,6 +145,31 @@ node scripts/hj_import/verify_import.mjs               件数・別名検索・�
 - 既存キットに新しい作例が増えても、DB の `source_ref` は更新されない(追加だけのため)
 - 取り込み後に `review_same.csv` で新しく ○ を付けると、統合される側のキットは DB に残る。スクリプトはそれを「merged_into を検討」として表示するだけなので、統合は管理画面の merged_into で行う
 - `excluded_rows.csv` の条件を変えるなどで CSV から消えたキットも、DB からは消さない(「CSV にない」と表示するだけ)
+
+---
+
+## キットの名前修正・統合(管理画面ができるまでのつなぎ)
+
+`data/kit_corrections.csv`(`data/` は公開しないので `.gitignore` 済み)に書いて、まとめて反映する。先に 003 を適用しておくこと。
+
+| 列 | 内容 |
+|---|---|
+| キットid | 直すキットの id(必須) |
+| 今の名前 | DB の今の名前。DB と違えば止まる(古い CSV で上書きしないため) |
+| 新しい名前 | 入っていれば名前を変える。変更前の名前は自動で別名に残る(古い名前でも検索に出る) |
+| 統合先のキットid | 入っていれば merged_into で統合先にまとめる。レビュー・押下記録も付け替え、名前と別名は統合先の別名に残る |
+| メモ | 自由記入(DB には書かない) |
+
+```
+node scripts/admin/apply_kit_corrections.mjs            確認だけ(書き込まない)
+node scripts/admin/apply_kit_corrections.mjs --apply    書き込む
+```
+
+- 問題のある行が1つでもあれば、何も書き込まずに「何が起きたか / どうすれば直るか」を表示して止まる
+- 1行の中身(名前の変更・統合・付け替え)は全部反映されるか何も反映されないかのどちらか。反映済みの行は飛ばすので、同じ CSV を何度実行してもよい
+- 押下記録は「同じ端末・キット・種類の有効な記録は1件」の決まりがあるので、統合先にぶつかる記録は統合元に残す(`kit_stats` が統合先に合算するので人数は変わらない)
+- 統合は1段だけ(A→B→C は不可)。統合の取り消しはできない
+- HJ の取り込み(`import_to_supabase.mjs`)を再実行しても、既存の行は更新しないので、この修正は元に戻らない
 
 ---
 

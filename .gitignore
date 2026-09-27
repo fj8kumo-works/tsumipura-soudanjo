@@ -5,3 +5,6 @@ data/
 .env
 .env.*
 !.env.example
+
+# Claude のローカル設定(画面確認用の起動設定など)
+.claude/

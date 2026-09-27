@@ -34,17 +34,18 @@ function db() {
   return client;
 }
 
-// 検索用に表記をそろえる。DB の public.kit_search_key(002_kit_search_key.sql)と同じ規則:
-//   全角/半角をそろえる(NFKC)→ 英字を小文字に → ひらがなをカタカナに
+// 検索用に表記をそろえる。DB の public.kit_search_key(003_kit_corrections.sql)と同じ規則:
+//   全角/半角をそろえる(NFKC)→ 英字を小文字に → ひらがなをカタカナに → 中黒(・ ·)と空白を取り除く
 // 規則を変えるときは、DB の関数と必ず両方直すこと。
 export function toSearchKey(text) {
   return text.normalize('NFKC').toLowerCase()
-    .replace(/[ぁ-ゖゝゞ]/g, (c) => String.fromCharCode(c.charCodeAt(0) + 0x60));
+    .replace(/[ぁ-ゖゝゞ]/g, (c) => String.fromCharCode(c.charCodeAt(0) + 0x60))
+    .replace(/[\s・·]/g, '');
 }
 
-// 表記をそろえて、空白で区切った語に分ける
+// 空白で区切った語に分けてから、それぞれの表記をそろえる
 export function toTerms(query) {
-  return toSearchKey(query).split(/\s+/).filter(Boolean).slice(0, 5);
+  return query.normalize('NFKC').split(/\s+/).map(toSearchKey).filter(Boolean).slice(0, 5);
 }
 
 // LIKE の特殊文字(% _ \)をそのままの文字として扱う
@@ -111,7 +112,7 @@ export function errorMessage(err) {
   const msg = err?.message ?? String(err);
   if (/config\.js/.test(msg)) return msg;
   if (/search_key/.test(msg)) {
-    return 'データベースの更新が済んでいません。supabase/migrations/002_kit_search_key.sql を SQL Editor で実行してください。';
+    return 'データベースの更新が済んでいません。SQL Editor で supabase/migrations/ の 002・003 を順に実行してください。';
   }
   if (/Failed to fetch|NetworkError|Load failed/i.test(msg)) {
     return 'サーバーに接続できませんでした。ネット接続を確認して、もう一度お試しください。';

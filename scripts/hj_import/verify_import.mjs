@@ -6,6 +6,7 @@
 //   3. 統合した組が重複していない
 // NG があれば終了コード 1
 
+import fs from 'node:fs';
 import path from 'node:path';
 import { loadEnv, readCsv, client } from './supabase.mjs';
 
@@ -16,6 +17,15 @@ const anon = env.SUPABASE_ANON_KEY ? client(env.SUPABASE_URL, env.SUPABASE_ANON_
 
 const kits = readCsv(path.join(DIR, 'kits_preview.csv'));
 const aliases = readCsv(path.join(DIR, 'aliases_preview.csv'));
+
+// kit_corrections.csv で直したキット(名前・別名が CSV と違ってよい)
+const correctionsFile = path.join(DIR, 'kit_corrections.csv');
+const corrected = new Set();
+if (fs.existsSync(correctionsFile)) {
+  for (const r of readCsv(correctionsFile)) {
+    for (const id of [r['キットid'], r['統合先のキットid']]) if (id?.trim()) corrected.add(id.trim().toLowerCase());
+  }
+}
 
 let ng = 0;
 const check = (label, ok, detail = '') => {
@@ -37,17 +47,24 @@ check('CSV の全キットが同じ id で DB にある', missing.length === 0,
 
 const diff = kits.filter((k) => {
   const d = dbById.get(k.id);
-  return d && (d.name !== k.name || (d.maker ?? '') !== k.maker || (d.scale ?? '') !== k.scale
+  return d && ((d.name !== k.name && !corrected.has(k.id)) || (d.maker ?? '') !== k.maker || (d.scale ?? '') !== k.scale
     || (d.source_ref ?? '') !== k.source_ref);
 });
-check('名前・メーカー・スケール・source_ref が CSV と一致', diff.length === 0,
+check('名前・メーカー・スケール・source_ref が CSV と一致(kit_corrections.csv で直した名前は除く)', diff.length === 0,
   diff.slice(0, 5).map((k) => k.no).join(' '));
+{
+  const kept = [...corrected].filter((id) => dbById.has(id));
+  check('kit_corrections.csv で直したキットが DB に残っている', kept.length === corrected.size,
+    `${kept.length} / ${corrected.size}`);
+}
 
 const hjIds = new Set(dbKits.map((k) => k.id));
 const dbAliases = (await admin.selectAll('kit_aliases', 'select=id,kit_id,alias')).filter((a) => hjIds.has(a.kit_id));
-check('hj キットの別名の件数が aliases_preview.csv と一致', dbAliases.length === aliases.length,
-  `DB ${dbAliases.length} / CSV ${aliases.length}`);
 const dbAliasSet = new Set(dbAliases.map((a) => `${a.kit_id}|${a.alias}`));
+const csvAliasSet = new Set(aliases.map((a) => `${a.kit_id}|${a.alias}`));
+const extra = dbAliases.filter((a) => !csvAliasSet.has(`${a.kit_id}|${a.alias}`));
+check('DB にしかない別名は、kit_corrections.csv で直したキットの分だけ', extra.every((a) => corrected.has(a.kit_id)),
+  `CSV ${aliases.length} + 修正で増えた ${extra.length} = DB ${dbAliases.length}`);
 const missingAlias = aliases.filter((a) => !dbAliasSet.has(`${a.kit_id}|${a.alias}`));
 check('CSV の全別名が正しいキットに付いている', missingAlias.length === 0,
   missingAlias.slice(0, 5).map((a) => `${a.kit_no} ${a.alias}`).join(', '));

@@ -22,8 +22,19 @@ export function loadEnv(file = '.env') {
   return env;
 }
 
+// Excel で保存し直すと Shift_JIS になることがあるので両方読めるようにする
+function readText(file) {
+  const buf = fs.readFileSync(file);
+  if (buf[0] === 0xef && buf[1] === 0xbb && buf[2] === 0xbf) return buf.subarray(3).toString('utf8');
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(buf);
+  } catch {
+    return new TextDecoder('shift_jis').decode(buf);
+  }
+}
+
 export function readCsv(file) {
-  const text = fs.readFileSync(file, 'utf8').replace(/^﻿/, '');
+  const text = readText(file);
   const rows = [];
   let row = [], field = '', quoted = false;
   for (let i = 0; i < text.length; i++) {
@@ -74,6 +85,15 @@ export function client(url, key) {
     },
     async get(table, query) {
       return (await request('GET', `${table}?${query}`)).data;
+    },
+    // DB 関数を呼ぶ
+    async rpc(name, args) {
+      return (await request('POST', `rpc/${name}`, { body: args })).data;
+    },
+    // DB 関数があるか(PostgREST の API 定義に載っているか)
+    async hasRpc(name) {
+      const { data } = await request('GET', '');
+      return Object.keys(data.paths ?? {}).includes(`/rpc/${name}`);
     },
     // 既にある行は変更しない(ON CONFLICT DO NOTHING)
     async insertIgnore(table, rows, onConflict) {
