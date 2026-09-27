@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>キット詳細 | 積みプラ相談所</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<header class="masthead">
+  <div class="wrap">
+    <h1><a href="./">積みプラ相談所</a></h1>
+    <p>積んだままのキットに、作った人の声を集める。</p>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="topbar">
+    <a class="btn-ghost" id="backLink" href="./">← 検索に戻る</a>
+  </div>
+
+  <p class="status" id="status" aria-live="polite">読み込んでいます…</p>
+  <p class="error" id="error" role="alert" hidden></p>
+
+  <section id="kit" hidden>
+    <div class="kit-head">
+      <h2 id="name"></h2>
+    </div>
+    <dl class="spec">
+      <dt>メーカー</dt><dd id="maker"></dd>
+      <dt>スケール</dt><dd id="scale"></dd>
+    </dl>
+  </section>
+</main>
+
+<script type="module">
+import { getKit, errorMessage } from './assets/api.js';
+
+const status = document.getElementById('status');
+const errorBox = document.getElementById('error');
+
+// 検索画面から来たときは、ブラウザの「戻る」と同じ動きにして検索結果に戻す
+const backLink = document.getElementById('backLink');
+if (document.referrer && new URL(document.referrer).origin === location.origin && history.length > 1) {
+  backLink.addEventListener('click', (e) => { e.preventDefault(); history.back(); });
+}
+
+function setValue(el, value, fallback) {
+  el.textContent = value || fallback;
+  el.classList.toggle('unknown', !value);
+}
+
+function showError(message) {
+  status.hidden = true;
+  errorBox.textContent = message;
+  errorBox.hidden = false;
+}
+
+try {
+  let id = new URLSearchParams(location.search).get('id');
+  let kit = await getKit(id);
+  // 統合済みのキットなら統合先を表示する(最大5回までたどる)
+  for (let i = 0; kit?.merged_into && i < 5; i++) {
+    kit = await getKit(kit.merged_into);
+  }
+  if (kit && kit.id !== id) history.replaceState(null, '', `?id=${encodeURIComponent(kit.id)}`);
+
+  if (!kit) {
+    showError('このキットは見つかりませんでした。URLが正しいか確認するか、検索からお探しください。');
+  } else {
+    document.title = `${kit.name} | 積みプラ相談所`;
+    document.getElementById('name').textContent = kit.name;
+    setValue(document.getElementById('maker'), kit.maker, '不明');
+    setValue(document.getElementById('scale'), kit.scale, '表記なし');
+    status.hidden = true;
+    document.getElementById('kit').hidden = false;
+  }
+} catch (err) {
+  showError(errorMessage(err));
+}
+</script>
+</body>
+</html>

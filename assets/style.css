@@ -1,0 +1,154 @@
+/* 積みプラ相談所 共通スタイル(prototype/index.html の見た目を引き継ぐ) */
+:root{
+  --bg:#100e0c;
+  --panel:#1b1713;
+  --card:#221c16;
+  --line:#3b322a;
+  --line-soft:#2c251e;
+  --text:#ece3d4;
+  --muted:#a4978a;
+  --brass:#d9a441;
+  --brass-soft:#7a5f2c;
+  --alert:#e78066;
+  --font-sans:"Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic","Noto Sans JP",system-ui,sans-serif;
+  --font-serif:"Hiragino Mincho ProN","Yu Mincho","Noto Serif JP",serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--font-sans);
+  font-size:15px;
+  line-height:1.75;
+  -webkit-font-smoothing:antialiased;
+}
+a{color:var(--brass)}
+.wrap{max-width:880px;margin:0 auto;padding:0 20px 80px}
+
+/* ---- header ---- */
+.masthead{
+  border-bottom:1px solid var(--line);
+  background:linear-gradient(180deg,#191410 0%,var(--bg) 100%);
+  padding:34px 0 26px;
+  margin-bottom:34px;
+}
+.masthead .wrap{padding-bottom:0}
+.masthead h1{
+  font-family:var(--font-serif);
+  font-size:30px;
+  font-weight:600;
+  letter-spacing:.12em;
+  margin:0 0 6px;
+}
+.masthead h1 a{color:inherit;text-decoration:none}
+.masthead p{margin:0;color:var(--muted);font-size:13px;letter-spacing:.04em}
+
+/* ---- panels ---- */
+.panel{
+  background:var(--panel);
+  border:1px solid var(--line-soft);
+  border-radius:4px;
+  padding:22px;
+  margin-bottom:34px;
+}
+.panel h2,.section-title{
+  font-family:var(--font-serif);
+  font-size:17px;
+  font-weight:600;
+  letter-spacing:.08em;
+  margin:0 0 4px;
+}
+.lead{color:var(--muted);font-size:13px;margin:0 0 18px}
+
+/* ---- form ---- */
+label{display:block;font-size:12.5px;color:var(--muted);margin-bottom:5px;letter-spacing:.06em}
+input[type=search]{
+  width:100%;
+  background:#141110;
+  border:1px solid var(--line);
+  border-radius:3px;
+  color:var(--text);
+  font-family:inherit;
+  font-size:16px;
+  padding:10px 12px;
+}
+input:focus{outline:2px solid var(--brass);outline-offset:1px;border-color:transparent}
+:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+.search-row{display:flex;gap:10px}
+.search-row input{flex:1}
+
+button{font-family:inherit;cursor:pointer}
+.btn{
+  background:var(--brass);
+  color:#1a1408;
+  border:none;
+  border-radius:3px;
+  font-size:14px;
+  font-weight:700;
+  letter-spacing:.06em;
+  padding:10px 20px;
+  white-space:nowrap;
+}
+.btn:hover{background:#e9b455}
+.btn-ghost{
+  display:inline-block;
+  background:transparent;
+  color:var(--text);
+  border:1px solid var(--line);
+  border-radius:3px;
+  font-size:13px;
+  padding:7px 14px;
+  text-decoration:none;
+}
+.btn-ghost:hover{border-color:var(--brass);color:var(--brass)}
+
+.note{color:var(--muted);font-size:12px;margin:8px 0 0}
+.error{color:var(--alert);font-size:13.5px;margin:10px 0 0}
+.status{color:var(--muted);font-size:13px;margin:0 0 14px;min-height:1.75em}
+
+/* ---- kit cards ---- */
+.kit-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:16px}
+.kit-card{
+  display:grid;
+  grid-template-columns:30px 1fr;
+  background:var(--card);
+  border:1px solid var(--line-soft);
+  border-radius:4px;
+  overflow:hidden;
+  color:inherit;
+  text-decoration:none;
+}
+.kit-card:hover,.kit-card:focus-visible{border-color:var(--brass-soft)}
+.kit-card .spine{
+  writing-mode:vertical-rl;
+  display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(90deg,#2b231b,#1e1913);
+  border-right:1px solid var(--line);
+  font-size:11px;letter-spacing:.14em;color:var(--muted);
+}
+.kit-card .body{padding:14px 16px 13px;min-width:0}
+.kit-card h3{
+  font-family:var(--font-serif);
+  font-size:16px;font-weight:600;margin:0 0 4px;line-height:1.5;
+  overflow-wrap:anywhere;
+}
+.kit-card .maker{color:var(--muted);font-size:12.5px;margin:0}
+.kit-card .hit{color:var(--brass);font-size:12px;margin:6px 0 0}
+
+/* ---- detail ---- */
+.topbar{display:flex;align-items:center;gap:14px;margin-bottom:22px}
+.kit-head{border-left:3px solid var(--brass);padding-left:16px;margin-bottom:28px}
+.kit-head h2{font-family:var(--font-serif);font-size:23px;font-weight:600;margin:0 0 6px;letter-spacing:.04em;overflow-wrap:anywhere}
+.spec{display:grid;grid-template-columns:auto 1fr;gap:6px 20px;margin:0;font-size:14.5px}
+.spec dt{color:var(--muted);font-size:13px}
+.spec dd{margin:0}
+.spec .unknown{color:var(--muted)}
+
+.empty{color:var(--muted);font-size:14px;background:var(--card);border:1px dashed var(--line);border-radius:4px;padding:22px;text-align:center}
+
+[hidden]{display:none !important}
+@media (max-width:520px){
+  .masthead h1{font-size:25px}
+  .wrap{padding:0 16px 60px}
+}

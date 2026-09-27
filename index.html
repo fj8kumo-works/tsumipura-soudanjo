@@ -4,624 +4,131 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>積みプラ相談所</title>
-<style>
-:root{
-  --bg:#100e0c;
-  --panel:#1b1713;
-  --card:#221c16;
-  --line:#3b322a;
-  --line-soft:#2c251e;
-  --text:#ece3d4;
-  --muted:#a4978a;
-  --brass:#d9a441;
-  --brass-soft:#7a5f2c;
-  --alert:#e78066;
-  --font-sans:"Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic","Noto Sans JP",system-ui,sans-serif;
-  --font-serif:"Hiragino Mincho ProN","Yu Mincho","Noto Serif JP",serif;
-}
-*{box-sizing:border-box}
-html,body{margin:0;padding:0}
-body{
-  background:var(--bg);
-  color:var(--text);
-  font-family:var(--font-sans);
-  font-size:15px;
-  line-height:1.75;
-  -webkit-font-smoothing:antialiased;
-}
-.wrap{max-width:880px;margin:0 auto;padding:0 20px 80px}
-
-/* ---- header ---- */
-.masthead{
-  border-bottom:1px solid var(--line);
-  background:linear-gradient(180deg,#191410 0%,var(--bg) 100%);
-  padding:34px 0 26px;
-  margin-bottom:34px;
-}
-.masthead h1{
-  font-family:var(--font-serif);
-  font-size:30px;
-  font-weight:600;
-  letter-spacing:.12em;
-  margin:0 0 6px;
-}
-.masthead p{margin:0;color:var(--muted);font-size:13px;letter-spacing:.04em}
-
-/* ---- panels ---- */
-.panel{
-  background:var(--panel);
-  border:1px solid var(--line-soft);
-  border-radius:4px;
-  padding:22px;
-  margin-bottom:34px;
-}
-.panel h2,.section-title{
-  font-family:var(--font-serif);
-  font-size:17px;
-  font-weight:600;
-  letter-spacing:.08em;
-  margin:0 0 4px;
-}
-.panel .lead{color:var(--muted);font-size:13px;margin:0 0 18px}
-
-/* ---- form ---- */
-.field{margin-bottom:14px;position:relative}
-label{display:block;font-size:12.5px;color:var(--muted);margin-bottom:5px;letter-spacing:.06em}
-input[type=text],input[type=url],textarea{
-  width:100%;
-  background:#141110;
-  border:1px solid var(--line);
-  border-radius:3px;
-  color:var(--text);
-  font-family:inherit;
-  font-size:14.5px;
-  padding:9px 11px;
-}
-textarea{resize:vertical;min-height:70px;line-height:1.7}
-input:focus,textarea:focus{outline:2px solid var(--brass);outline-offset:1px;border-color:transparent}
-.row{display:flex;gap:14px;flex-wrap:wrap}
-.row .field{flex:1 1 190px}
-
-button{font-family:inherit;cursor:pointer}
-.btn{
-  background:var(--brass);
-  color:#1a1408;
-  border:none;
-  border-radius:3px;
-  font-size:14px;
-  font-weight:700;
-  letter-spacing:.06em;
-  padding:10px 20px;
-}
-.btn:hover{background:#e9b455}
-.btn-ghost{
-  background:transparent;
-  color:var(--text);
-  border:1px solid var(--line);
-  border-radius:3px;
-  font-size:13px;
-  padding:7px 14px;
-}
-.btn-ghost:hover{border-color:var(--brass);color:var(--brass)}
-:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
-
-.note{color:var(--muted);font-size:12px;margin:8px 0 0}
-.error{color:var(--alert);font-size:13px;margin:10px 0 0;min-height:1px}
-
-/* ---- suggest list ---- */
-.suggest{
-  position:absolute;
-  z-index:20;
-  left:0;right:0;top:100%;
-  margin-top:3px;
-  background:#15120f;
-  border:1px solid var(--brass-soft);
-  border-radius:3px;
-  overflow:hidden;
-  box-shadow:0 10px 24px rgba(0,0,0,.55);
-}
-.suggest[hidden]{display:none}
-.suggest button{
-  display:block;width:100%;text-align:left;
-  background:none;border:none;border-bottom:1px solid var(--line-soft);
-  color:var(--text);padding:9px 12px;font-size:14px;line-height:1.5;
-}
-.suggest button:last-child{border-bottom:none}
-.suggest button:hover,.suggest button:focus{background:#221a10}
-.suggest .meta{display:block;font-size:11.5px;color:var(--muted);letter-spacing:.04em}
-
-/* ---- kit cards ---- */
-.kit-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:16px}
-.kit-card{
-  display:grid;
-  grid-template-columns:30px 1fr;
-  background:var(--card);
-  border:1px solid var(--line-soft);
-  border-radius:4px;
-  overflow:hidden;
-  text-align:left;
-  color:inherit;
-  padding:0;
-  font-family:inherit;
-}
-.kit-card:hover{border-color:var(--brass-soft)}
-.kit-card .spine{
-  writing-mode:vertical-rl;
-  display:flex;align-items:center;justify-content:center;
-  background:linear-gradient(90deg,#2b231b,#1e1913);
-  border-right:1px solid var(--line);
-  font-size:11px;letter-spacing:.14em;color:var(--muted);
-}
-.kit-card .body{padding:15px 16px 14px}
-.kit-card h3{
-  font-family:var(--font-serif);
-  font-size:16px;font-weight:600;margin:0 0 4px;line-height:1.5;
-}
-.kit-card .maker{color:var(--muted);font-size:12.5px;margin:0 0 12px}
-.kit-card .stat{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--muted)}
-
-/* ---- stars ---- */
-.stars{color:var(--brass);letter-spacing:.14em;font-size:14px}
-.stars .off{color:#4a4038}
-
-/* ---- detail ---- */
-.kit-head{border-left:3px solid var(--brass);padding-left:16px;margin-bottom:28px}
-.kit-head h2{font-family:var(--font-serif);font-size:23px;font-weight:600;margin:0 0 6px;letter-spacing:.04em}
-.kit-head .sub{color:var(--muted);font-size:13px;margin:0}
-.topbar{display:flex;align-items:center;gap:14px;margin-bottom:22px}
-
-.review{
-  background:var(--card);
-  border:1px solid var(--line-soft);
-  border-radius:4px;
-  padding:18px;
-  margin-bottom:14px;
-}
-.review .who{display:flex;flex-wrap:wrap;align-items:baseline;gap:10px;margin-bottom:12px}
-.review .name{font-weight:700;font-size:14.5px}
-.review h4{
-  font-family:var(--font-serif);
-  font-size:13px;font-weight:600;color:var(--brass);
-  margin:0 0 2px;letter-spacing:.1em;
-}
-.review .block+.block{margin-top:12px}
-.review p{margin:0;font-size:14.5px}
-.xlink{
-  display:inline-block;margin-top:14px;
-  background:transparent;border:1px solid var(--brass-soft);
-  color:var(--brass);text-decoration:none;
-  font-size:13px;font-weight:700;padding:7px 15px;border-radius:3px;
-}
-.xlink:hover{background:var(--brass);color:#1a1408;border-color:var(--brass)}
-
-.empty{color:var(--muted);font-size:14px;background:var(--card);border:1px dashed var(--line);border-radius:4px;padding:22px;text-align:center}
-
-/* ---- star input ---- */
-.starpick{display:flex;gap:4px;align-items:center}
-.starpick input{position:absolute;opacity:0;width:1px;height:1px}
-.starpick label{
-  margin:0;cursor:pointer;font-size:22px;line-height:1;color:#4a4038;padding:2px;
-}
-.starpick input:checked~label{color:#4a4038}
-.starpick label.on{color:var(--brass)}
-.starpick input:focus-visible+label{outline:2px solid var(--brass);outline-offset:2px}
-.starpick .val{margin-left:8px;font-size:12.5px;color:var(--muted)}
-
-[hidden]{display:none !important}
-@media (max-width:520px){
-  .masthead h1{font-size:25px}
-  .wrap{padding:0 14px 60px}
-}
-</style>
+<link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
 
 <header class="masthead">
-  <div class="wrap" style="padding-bottom:0">
-    <h1>積みプラ相談所</h1>
+  <div class="wrap">
+    <h1><a href="./">積みプラ相談所</a></h1>
     <p>積んだままのキットに、作った人の声を集める。</p>
   </div>
 </header>
 
 <main class="wrap">
-
-  <!-- ============ 画面1：一覧 ============ -->
-  <section id="view-list">
-
-    <div class="panel">
-      <h2>積みプラを登録する</h2>
-      <p class="lead">同じキットが登録済みなら、候補から選ぶとそのキットのレビューが読めます。</p>
-
-      <div class="field">
-        <label for="kitName">キット名</label>
-        <input type="text" id="kitName" autocomplete="off" placeholder="例：HG 1/144 ガンダム・エアリアル">
-        <div class="suggest" id="suggest" hidden></div>
-      </div>
-
-      <div class="row">
-        <div class="field">
-          <label for="kitMaker">メーカー</label>
-          <input type="text" id="kitMaker" autocomplete="off" placeholder="例：BANDAI SPIRITS">
-        </div>
-        <div class="field">
-          <label for="kitScale">スケール</label>
-          <input type="text" id="kitScale" autocomplete="off" placeholder="例：1/144">
-        </div>
-        <div class="field">
-          <label for="kitBought">購入時期（任意）</label>
-          <input type="text" id="kitBought" autocomplete="off" placeholder="例：2024年の夏">
-        </div>
-      </div>
-
-      <button class="btn" id="addKitBtn">新規登録</button>
-      <p class="error" id="kitError" role="alert"></p>
+  <form class="panel" id="searchForm" role="search">
+    <h2>キットを探す</h2>
+    <p class="lead">キット名の一部で探せます。空白で区切ると、すべての語を含むキットに絞り込みます。</p>
+    <label for="q">キット名</label>
+    <div class="search-row">
+      <input type="search" id="q" name="q" autocomplete="off" placeholder="例:エアリアル、ドアン専用ザク">
+      <button class="btn" type="submit">検索</button>
     </div>
+    <p class="error" id="error" role="alert" hidden></p>
+  </form>
 
-    <h2 class="section-title">登録済みの積みプラ</h2>
-    <p class="lead" style="color:var(--muted);font-size:13px;margin:0 0 18px">カードを押すと、作った人のレビューが読めます。</p>
-    <div class="kit-grid" id="kitGrid"></div>
-  </section>
-
-  <!-- ============ 画面2：詳細 ============ -->
-  <section id="view-detail" hidden>
-    <div class="topbar">
-      <button class="btn-ghost" id="backBtn">← 一覧に戻る</button>
-    </div>
-
-    <div class="kit-head">
-      <h2 id="dName"></h2>
-      <p class="sub" id="dSub"></p>
-    </div>
-
-    <h3 class="section-title">作った人のレビュー</h3>
-    <p class="lead" style="color:var(--muted);font-size:13px;margin:0 0 18px" id="dCount"></p>
-    <div id="reviewList"></div>
-
-    <div class="panel" style="margin-top:34px">
-      <h2>このキットのレビューを書く</h2>
-      <p class="lead">積んでいる人の背中を押すつもりで、詰まったところも書いてもらえると助かります。</p>
-
-      <div class="row">
-        <div class="field">
-          <label for="rUser">ユーザー名</label>
-          <input type="text" id="rUser" autocomplete="off" placeholder="例：ぷらもの人">
-        </div>
-        <div class="field">
-          <label for="rUrl">自分の完成ポストのURL</label>
-          <input type="url" id="rUrl" autocomplete="off" placeholder="https://x.com/…（なくてもOK）">
-        </div>
-      </div>
-
-      <div class="field">
-        <label for="rImp">感想</label>
-        <textarea id="rImp" placeholder="組んでみてどうだったか"></textarea>
-      </div>
-
-      <div class="field">
-        <label for="rCau">制作の注意点</label>
-        <textarea id="rCau" placeholder="ここで詰まる、ここは先にやる、など"></textarea>
-      </div>
-
-      <div class="field">
-        <span style="display:block;font-size:12.5px;color:var(--muted);margin-bottom:5px;letter-spacing:.06em">モチベ度</span>
-        <div class="starpick" id="starPick"></div>
-      </div>
-
-      <button class="btn" id="postBtn">レビューを投稿する</button>
-      <p class="error" id="rError" role="alert"></p>
-    </div>
-  </section>
-
+  <p class="status" id="status" aria-live="polite"></p>
+  <div class="kit-grid" id="results"></div>
 </main>
 
-<script>
-/* ========== データ（ベタ書き・リロードで初期状態に戻ります） ========== */
-let nextId = 100;
-const kits = [
-  {
-    id: 1,
-    name: "HG 1/144 ガンダム・エアリアル",
-    maker: "BANDAI SPIRITS",
-    scale: "1/144",
-    bought: "2023年の夏",
-    reviews: [
-      { user:"にっぱー小僧", url:"https://x.com/example/status/1811110000000001",
-        impression:"HGなのに色分けがほぼ完璧で、素組みでも写真が撮れる出来。シェルユニットの透明パーツが光を拾うので、飾ったときの満足度が高いです。",
-        caution:"ビームライフルの保持がゆるくなりやすいので、握り手側に薄くプラ板を貼るか流し込みを一滴。シェルユニットは接着剤のはみ出しが目立つので接着は最小限に。",
-        motivation:5 },
-      { user:"週末モデラーTAK", url:"https://x.com/example/status/1811110000000002",
-        impression:"3時間で形になりました。積み崩しの一発目にちょうどいい重さです。",
-        caution:"白パーツにゲート跡が残りやすいので、二度切りしてからヤスリ。合わせ目はほぼ出ません。",
-        motivation:4 },
-      { user:"赤い彗星の弟", url:"",
-        impression:"スカートのスラスターまわりだけ塗れば一気に締まります。全塗装しなくても十分。",
-        caution:"腰のアーマーが外れやすいので、ポーズをつけるときは先に足回りを決めてから。",
-        motivation:4 }
-    ]
-  },
-  {
-    id: 2,
-    name: "MG 1/100 νガンダム Ver.Ka",
-    maker: "BANDAI SPIRITS",
-    scale: "1/100",
-    bought: "2021年の冬",
-    reviews: [
-      { user:"フィンファンネル中毒", url:"https://x.com/example/status/1811110000000011",
-        impression:"組み立て時間は長いけれど、フレームが組み上がった時点でもう満足。完成後の存在感は積んでいる価値があります。",
-        caution:"ファンネルのラックが自重で下がるので、接続部は擦り合わせて調整必須。説明書のステップを飛ばすと後戻りが大変なので順番通りに。",
-        motivation:5 },
-      { user:"月曜から夜更かし塗装", url:"https://x.com/example/status/1811110000000012",
-        impression:"白の面積が広いので、塗るなら下地から計画したほうが幸せになれます。素組みでも十分きれい。",
-        caution:"デカールの量がとにかく多い。一日で貼り切ろうとせず、三日に分けたほうが精度が上がります。",
-        motivation:4 }
-    ]
-  },
-  {
-    id: 3,
-    name: "メガミデバイス SOL ホーネット",
-    maker: "コトブキヤ",
-    scale: "ノンスケール",
-    bought: "2024年の春",
-    reviews: [
-      { user:"顔だけ三日かけた人", url:"https://x.com/example/status/1811110000000021",
-        impression:"顔のタンポ印刷がきれいで、素組みでも完成度が高いです。武装のボリュームがあるので、飾ったときの画になり方が段違い。",
-        caution:"関節が固い箇所があるので、初動は少しずつ。髪パーツの合わせ目は消すなら組む前に。",
-        motivation:5 },
-      { user:"マットコート信者", url:"https://x.com/example/status/1811110000000022",
-        impression:"肌パーツにつや消しを一吹きするだけで写真映えが変わります。",
-        caution:"つや消しは顔に乗せすぎると印刷が白っぽくなるので、顔だけマスキングするのが安全です。",
-        motivation:5 }
-    ]
-  },
-  {
-    id: 4,
-    name: "1/35 ドイツIII号突撃砲G型",
-    maker: "タミヤ",
-    scale: "1/35",
-    bought: "いつ買ったか不明",
-    reviews: [
-      { user:"土曜のウェザリング", url:"https://x.com/example/status/1811110000000031",
-        impression:"パーツ数が少なく、汚しの練習台として最高です。スミ入れとドライブラシだけでそれらしくなります。",
-        caution:"履帯は組んだあとだと塗りにくいので、車体に付ける前に塗装を済ませるのがおすすめ。",
-        motivation:4 },
-      { user:"ミリタリー初心者", url:"",
-        impression:"AFVの一作目に選んで正解でした。説明書がわかりやすい。",
-        caution:"小さい工具類のパーツが飛びやすいので、ランナーから切る前に受け皿を用意しておくこと。",
-        motivation:3 }
-    ]
-  },
-  {
-    id: 5,
-    name: "1/72 VF-1S バルキリー ファイター",
-    maker: "ハセガワ",
-    scale: "1/72",
-    bought: "2022年の秋",
-    reviews: [
-      { user:"デカール沼", url:"https://x.com/example/status/1811110000000041",
-        impression:"ファイター形態専用なので構造がシンプル。面がきれいなので塗装の練習にちょうどいいキットです。",
-        caution:"機首の合わせ目が目立つ位置に出ます。パテを使わないなら、先に接着して乾燥時間をしっかり取るのが近道。",
-        motivation:4 },
-      { user:"透明パーツ恐怖症", url:"https://x.com/example/status/1811110000000042",
-        impression:"小さいのに情報量があって、完成後に手に取る回数が多い一機。",
-        caution:"キャノピーは接着剤の白化に注意。木工用ボンドか専用の接着剤を使うと安心です。",
-        motivation:5 }
-    ]
+<script type="module">
+import { searchKits, errorMessage } from './assets/api.js';
+
+const form = document.getElementById('searchForm');
+const input = document.getElementById('q');
+const status = document.getElementById('status');
+const results = document.getElementById('results');
+const errorBox = document.getElementById('error');
+
+let latest = 0; // 古い検索結果で上書きしないための番号
+
+function kitCard({ kit, alias }) {
+  const a = document.createElement('a');
+  a.className = 'kit-card';
+  a.href = `kit.html?id=${encodeURIComponent(kit.id)}`;
+
+  const spine = document.createElement('span');
+  spine.className = 'spine';
+  spine.textContent = kit.scale || 'KIT';
+
+  const body = document.createElement('span');
+  body.className = 'body';
+  const h3 = document.createElement('h3');
+  h3.textContent = kit.name;
+  const maker = document.createElement('p');
+  maker.className = 'maker';
+  maker.textContent = [kit.maker || 'メーカー不明', kit.scale].filter(Boolean).join(' / ');
+  body.append(h3, maker);
+  if (alias) {
+    const hit = document.createElement('p');
+    hit.className = 'hit';
+    hit.textContent = `別名「${alias}」で一致`;
+    body.append(hit);
   }
-];
-
-/* ========== ユーティリティ ========== */
-const $ = id => document.getElementById(id);
-function esc(s){
-  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-}
-function avg(kit){
-  if(!kit.reviews.length) return 0;
-  return kit.reviews.reduce((a,r)=>a+r.motivation,0) / kit.reviews.length;
-}
-function starsHTML(n){
-  const filled = Math.round(n);
-  let out = '';
-  for(let i=1;i<=5;i++) out += i<=filled ? '★' : '<span class="off">★</span>';
-  return '<span class="stars">'+out+'</span>';
-}
-function isXUrl(v){
-  let s = v.trim();
-  if(!s) return false;
-  if(!/^https?:\/\//i.test(s)) s = 'https://' + s;
-  try{
-    const h = new URL(s).hostname.toLowerCase().replace(/^www\./,'').replace(/^mobile\./,'');
-    return h === 'x.com' || h === 'twitter.com';
-  }catch(e){ return false; }
-}
-function normalizeUrl(v){
-  const s = v.trim();
-  return /^https?:\/\//i.test(s) ? s : 'https://' + s;
+  a.append(spine, body);
+  return a;
 }
 
-/* ========== 画面切り替え ========== */
-let currentKitId = null;
-function showList(){
-  $('view-detail').hidden = true;
-  $('view-list').hidden = false;
-  currentKitId = null;
-  renderKits();
-  window.scrollTo(0,0);
-}
-function showDetail(id){
-  currentKitId = id;
-  $('view-list').hidden = true;
-  $('view-detail').hidden = false;
-  renderDetail();
-  window.scrollTo(0,0);
-}
-
-/* ========== 一覧の描画 ========== */
-function renderKits(){
-  const grid = $('kitGrid');
-  if(!kits.length){
-    grid.innerHTML = '<p class="empty">まだ1件も登録されていません。上のフォームから積みプラを登録してください。</p>';
+async function run(query) {
+  const id = ++latest;
+  errorBox.hidden = true;
+  if (!query.trim()) {
+    status.textContent = '';
+    results.replaceChildren();
     return;
   }
-  grid.innerHTML = kits.map(k => `
-    <button class="kit-card" data-id="${k.id}">
-      <span class="spine">${esc(k.scale || '—')}</span>
-      <span class="body">
-        <h3>${esc(k.name)}</h3>
-        <p class="maker">${esc(k.maker || 'メーカー未入力')}</p>
-        <span class="stat">
-          ${starsHTML(avg(k))}
-          <span>${k.reviews.length ? '平均 ' + avg(k).toFixed(1) : 'レビュー募集中'}</span>
-          <span>レビュー ${k.reviews.length}件</span>
-        </span>
-      </span>
-    </button>`).join('');
-  grid.querySelectorAll('.kit-card').forEach(el => {
-    el.addEventListener('click', () => showDetail(Number(el.dataset.id)));
-  });
-}
-
-/* ========== 候補表示（部分一致・最大5件） ========== */
-const nameInput = $('kitName');
-const suggestBox = $('suggest');
-
-function renderSuggest(){
-  const q = nameInput.value.trim().toLowerCase();
-  if(!q){ suggestBox.hidden = true; suggestBox.innerHTML=''; return; }
-  const hits = kits.filter(k => k.name.toLowerCase().includes(q)).slice(0,5);
-  if(!hits.length){ suggestBox.hidden = true; suggestBox.innerHTML=''; return; }
-  suggestBox.innerHTML = hits.map(k => `
-    <button type="button" data-id="${k.id}">
-      ${esc(k.name)}
-      <span class="meta">${esc(k.maker || 'メーカー未入力')} / レビュー ${k.reviews.length}件</span>
-    </button>`).join('');
-  suggestBox.hidden = false;
-  suggestBox.querySelectorAll('button').forEach(b => {
-    b.addEventListener('click', () => {
-      suggestBox.hidden = true;
-      clearKitForm();
-      showDetail(Number(b.dataset.id));
-    });
-  });
-}
-nameInput.addEventListener('input', renderSuggest);
-nameInput.addEventListener('focus', renderSuggest);
-document.addEventListener('click', e => {
-  if(!suggestBox.contains(e.target) && e.target !== nameInput) suggestBox.hidden = true;
-});
-nameInput.addEventListener('keydown', e => { if(e.key === 'Escape') suggestBox.hidden = true; });
-
-/* ========== 新規登録 ========== */
-function clearKitForm(){
-  ['kitName','kitMaker','kitScale','kitBought'].forEach(id => $(id).value = '');
-  $('kitError').textContent = '';
-}
-$('addKitBtn').addEventListener('click', () => {
-  const name = $('kitName').value.trim();
-  const err = $('kitError');
-  if(!name){ err.textContent = 'キット名を入力してください。'; nameInput.focus(); return; }
-  kits.unshift({
-    id: nextId++,
-    name,
-    maker: $('kitMaker').value.trim(),
-    scale: $('kitScale').value.trim(),
-    bought: $('kitBought').value.trim(),
-    reviews: []
-  });
-  clearKitForm();
-  suggestBox.hidden = true;
-  renderKits();
-});
-
-/* ========== 詳細の描画 ========== */
-function renderDetail(){
-  const kit = kits.find(k => k.id === currentKitId);
-  if(!kit){ showList(); return; }
-
-  $('dName').textContent = kit.name;
-  const parts = [kit.maker || 'メーカー未入力', kit.scale || 'スケール未入力'];
-  if(kit.bought) parts.push('購入：' + kit.bought);
-  $('dSub').textContent = parts.join('　/　');
-  $('dCount').textContent = kit.reviews.length
-    ? kit.reviews.length + '件　平均モチベ度 ' + avg(kit).toFixed(1)
-    : '';
-
-  const list = $('reviewList');
-  if(!kit.reviews.length){
-    list.innerHTML = '<p class="empty">まだレビューがありません。作った人の1件目になってください。</p>';
-    return;
-  }
-  list.innerHTML = kit.reviews.map(r => {
-    const link = r.url
-      ? `<a class="xlink" href="${esc(normalizeUrl(r.url))}" target="_blank" rel="noopener">完成写真を見る（X）</a>`
+  status.textContent = '検索しています…';
+  try {
+    const { kits, truncated } = await searchKits(query);
+    if (id !== latest) return;
+    results.replaceChildren(...kits.map(kitCard));
+    status.textContent = kits.length
+      ? `${kits.length}件見つかりました${truncated ? '(多いので先頭の50件まで。語を足して絞り込んでください)' : ''}`
       : '';
-    const imp = r.impression
-      ? `<div class="block"><h4>感想</h4><p>${esc(r.impression)}</p></div>` : '';
-    const cau = r.caution
-      ? `<div class="block"><h4>制作の注意点</h4><p>${esc(r.caution)}</p></div>` : '';
-    return `<article class="review">
-      <div class="who">
-        <span class="name">${esc(r.user)}</span>
-        ${starsHTML(r.motivation)}
-        <span style="color:var(--muted);font-size:12.5px">モチベ度 ${r.motivation}</span>
-      </div>
-      ${imp}${cau}${link}
-    </article>`;
-  }).join('');
-}
-
-/* ========== モチベ度の星入力 ========== */
-let pickedStar = 5;
-function buildStarPick(){
-  const box = $('starPick');
-  box.innerHTML = '';
-  for(let i=1;i<=5;i++){
-    const input = document.createElement('input');
-    input.type = 'radio'; input.name = 'motivation'; input.id = 'st'+i; input.value = i;
-    if(i === pickedStar) input.checked = true;
-    const label = document.createElement('label');
-    label.htmlFor = 'st'+i; label.textContent = '★';
-    label.setAttribute('aria-label', i + '段階');
-    input.addEventListener('change', () => { pickedStar = i; paintStars(); });
-    box.appendChild(input); box.appendChild(label);
+    if (!kits.length) {
+      const empty = document.createElement('p');
+      empty.className = 'empty';
+      empty.textContent = `「${query.trim()}」に一致するキットは見つかりませんでした。短い語や別の書き方で試してください。`;
+      results.replaceChildren(empty);
+    }
+  } catch (err) {
+    if (id !== latest) return;
+    status.textContent = '';
+    results.replaceChildren();
+    errorBox.textContent = errorMessage(err);
+    errorBox.hidden = false;
   }
-  const val = document.createElement('span');
-  val.className = 'val'; val.id = 'starVal';
-  box.appendChild(val);
-  paintStars();
-}
-function paintStars(){
-  const labels = $('starPick').querySelectorAll('label');
-  labels.forEach((l,idx) => l.classList.toggle('on', idx < pickedStar));
-  $('starVal').textContent = pickedStar + ' / 5';
 }
 
-/* ========== レビュー投稿 ========== */
-$('postBtn').addEventListener('click', () => {
-  const kit = kits.find(k => k.id === currentKitId);
-  if(!kit) return;
-  const err = $('rError');
-  const user = $('rUser').value.trim();
-  const url  = $('rUrl').value.trim();
-  const imp  = $('rImp').value.trim();
-  const cau  = $('rCau').value.trim();
+// 検索語を URL(?q=)に残す。詳細画面から「戻る」で結果に戻れる
+function searchFromUrl() {
+  const q = new URLSearchParams(location.search).get('q') ?? '';
+  input.value = q;
+  run(q);
+}
 
-  if(!user){ err.textContent = 'ユーザー名を入力してください。'; $('rUser').focus(); return; }
-  if(!imp && !cau){ err.textContent = '感想か注意点のどちらかは書いてください。'; $('rImp').focus(); return; }
-  if(url && !isXUrl(url)){ err.textContent = 'Xのポストのリンクを貼ってください'; $('rUrl').focus(); return; }
-
-  kit.reviews.push({ user, url, impression: imp, caution: cau, motivation: pickedStar });
-  $('rUser').value = ''; $('rUrl').value = ''; $('rImp').value = ''; $('rCau').value = '';
-  err.textContent = '';
-  pickedStar = 5; buildStarPick();
-  renderDetail();
-  document.querySelector('#reviewList .review:last-child').scrollIntoView({block:'center'});
+form.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const q = input.value.trim();
+  const url = q ? `?q=${encodeURIComponent(q)}` : location.pathname;
+  history.pushState(null, '', url);
+  run(q);
 });
 
-$('backBtn').addEventListener('click', showList);
+// 入力の途中でも、少し止まったら検索する
+let timer;
+input.addEventListener('input', () => {
+  clearTimeout(timer);
+  timer = setTimeout(() => {
+    const q = input.value.trim();
+    history.replaceState(null, '', q ? `?q=${encodeURIComponent(q)}` : location.pathname);
+    run(q);
+  }, 350);
+});
 
-/* ========== 初期化 ========== */
-buildStarPick();
-renderKits();
+window.addEventListener('popstate', searchFromUrl);
+searchFromUrl();
+input.focus();
 </script>
 </body>
 </html>

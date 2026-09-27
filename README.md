@@ -12,7 +12,9 @@
 ```
 supabase/
   migrations/001_init.sql     テーブル・権限・関数・集計・Storage の初期設定
+  migrations/002_kit_search_key.sql  検索用の列 search_key(表記ゆれ対策)
   tests/001_init_check.sql    動作確認用SQL(実行してもデータは残らない)
+  tests/002_kit_search_key_check.sql  002 の動作確認用SQL
 scripts/
   hj_import/build_kits_preview.mjs  HJ作例インデックス → kits / kit_aliases のプレビューCSV
   hj_import/maker_aliases.csv       メーカー表記の対応表
@@ -63,6 +65,13 @@ select id from auth.users where email = 'admin@example.com';
 ### 5. Storage を確認する
 
 **Storage** に `review-images` バケットができていて、Public・2MB・`image/jpeg, image/png, image/webp` になっていればOK。
+
+### 6. 検索の表記ゆれ対策(002)
+
+1. SQL Editor の New query に `supabase/migrations/002_kit_search_key.sql` をすべて貼り付けて **Run**(1回だけ)
+2. 続けて `supabase/tests/002_kit_search_key_check.sql` を貼り付けて **Run**。わざとエラーで終わり、`テスト結果: 17件中 NG 0件` なら OK
+
+`kits` と `kit_aliases` に検索用の列 `search_key` が自動で作られる。ひらがな/カタカナ、全角/半角(Ｆ/F、１/1、／//)、大文字/小文字の違いをそろえた文字列で、画面の検索はこの列で探す。そろえる規則は DB の `public.kit_search_key` と `assets/api.js` の `toSearchKey` で同じにしてあるので、変えるときは両方直す。
 
 ---
 
