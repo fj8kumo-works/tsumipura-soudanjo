@@ -8,6 +8,8 @@
 // CSV(既定: data/reminder_export.csv。Excel で Shift_JIS 保存しても読める)
 //   kit_name       キット名(必須)。「1/24 スバル BRZ」のようにスケールが入っていれば取り出して scale 列に入れる
 //   maker          メーカー。scripts/hj_import/maker_aliases.csv で表記をそろえる。空なら必ず「要確認」
+//   ※ CSV の中で名前が似ている行(書き方違いの同じキットかもしれない)は、両方とも「要確認」になる。
+//     同じキットなら CSV を1行にまとめてから、もう一度確認する
 //   release_month  発売月(例: 2026-10)。空でもよい
 //
 // 確認だけのとき、判定結果を data/reminder_review.csv に書き出す。
@@ -154,6 +156,9 @@ console.log(`\n■ 要確認: ${byStatus('要確認').length}件(○ を付け�
 for (const r of byStatus('要確認')) {
   console.log(`  ${label(r)}  … ${r.reason}  [登録: ${MARKS.has(r.mark) ? '○' : 'しない'}]`);
   for (const c of r.candidates) console.log(`      似ている DB のキット: ${kitLabel(c)}`);
+  for (const s of r.csvSimilar) {
+    console.log(`      似ている CSV の行: ${s.line} ${s.name}${s.scale ? ` [${s.scale}]` : ''} / ${s.maker || '(メーカー空)'}`);
+  }
 }
 
 const toInsert = results.filter((r) => r.register);

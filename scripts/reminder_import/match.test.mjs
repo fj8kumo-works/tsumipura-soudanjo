@@ -161,13 +161,71 @@ test('メーカーが違えば、名前が似ているだけでは要確認に�
 });
 
 test('CSV の中で同じキットが2回出たら2回目は重複', () => {
-  const rs = judge([['スバル BRZ 1/24', 'タミヤ'], ['スバル ＢＲＺ', 'タミヤ'], ['1:24 スバルBRZ', 'タミヤ']], []);
-  assert.deepEqual(rs.map((r) => r.status), ['新規', '新規', '重複']);
+  const rs = judge([['スバル BRZ 1/24', 'タミヤ'], ['スバル BRZ 1/32', 'タミヤ'], ['1:24 スバルBRZ', 'タミヤ']], []);
+  // 1・2件目は名前が同じでスケールだけ違うので、CSV の中で似ている行として要確認
+  assert.deepEqual(rs.map((r) => r.status), ['要確認', '要確認', '重複']);
   assert.equal(rs[2].reason, 'CSV の 1 件目と同じ');
   // 取り込みスクリプトでは行番号(見出しが1行目)で出す
   const prepared = [{ kit_name: 'A', maker: 'タミヤ' }, { kit_name: 'A', maker: 'タミヤ' }]
     .map((r, i) => ({ line: i + 2, ...prepareRow(r, unify) }));
   assert.equal(classify(prepared, [])[1].reason, 'CSV の 2 行目と同じ');
+});
+
+// ---------------------------------------------------------------- CSV の中で似ている行
+
+// 取り込みスクリプトと同じく行番号(見出しが1行目)を付けて判定する
+function judgeLines(csvRows, kits = []) {
+  const prepared = csvRows.map((r, i) =>
+    ({ line: i + 2, ...prepareRow({ kit_name: r[0], maker: r[1], release_month: '' }, unify) }));
+  return classify(prepared, indexKits(kits, [], unify));
+}
+
+test('記事タイトルのように言葉が足された書き方違いは、両方とも要確認', () => {
+  const rs = judgeLines([
+    ['コジマプロダクション設立10周年記念 プラモデルルーデンス', 'コトブキヤ'],
+    ['コジマプロダクションルーデンスプラモデル', 'コトブキヤ'],
+  ]);
+  assert.deepEqual(rs.map((r) => r.status), ['要確認', '要確認']);
+  assert.equal(rs[0].reason, 'CSV の 3 行目と名前が似ている');
+  assert.equal(rs[1].reason, 'CSV の 2 行目と名前が似ている');
+  assert.equal(rs[0].csvSimilar[0].name, 'コジマプロダクションルーデンスプラモデル');
+});
+
+test('片方の名前がもう片方に含まれていれば要確認', () => {
+  const rs = judgeLines([['ルーデンス', 'コトブキヤ'], ['ルーデンス 特典付き', 'コトブキヤ']]);
+  assert.deepEqual(rs.map((r) => r.status), ['要確認', '要確認']);
+});
+
+test('メーカーが空の行の理由には、CSV の似ている行も書き足す', () => {
+  const rs = judgeLines([['ルーデンス', ''], ['ルーデンス 特典付き', 'コトブキヤ']]);
+  assert.equal(rs[0].reason, 'メーカーが空 / CSV の 3 行目と名前が似ている');
+});
+
+test('3行以上似ていれば、似ている行をすべて書く', () => {
+  const rs = judgeLines([['ルーデンス', 'コトブキヤ'], ['ルーデンス 限定版', 'コトブキヤ'], ['ルーデンス 特典付き', 'コトブキヤ']]);
+  assert.equal(rs[0].reason, 'CSV の 3 行目・4 行目と名前が似ている');
+});
+
+test('メーカーが違えば、CSV の中で名前が似ているだけでは要確認にしない', () => {
+  const rs = judgeLines([['HG ガンダムエアリアル', 'バンダイ'], ['HG ガンダムエアリアル改修型', 'タミヤ']]);
+  assert.deepEqual(rs.map((r) => r.status), ['新規', '新規']);
+});
+
+test('似ていない別のキットは、CSV の中でも要確認にしない', () => {
+  const rs = judgeLines([
+    ['HG ガンダム', 'バンダイ'], ['RG ガンダム Mk-II', 'バンダイ'],
+    ['零戦52型 1/48', 'タミヤ'], ['零戦21型 1/48', 'タミヤ'],
+  ]);
+  assert.deepEqual(rs.map((r) => r.status), ['新規', '新規', '新規', '新規']);
+});
+
+test('DB と重複する行は、CSV の中の比較には使わない(登録されないため)', () => {
+  const rs = judgeLines([['ルーデンス', 'コトブキヤ'], ['ルーデンス 特典付き', 'コトブキヤ']],
+    [kit('k1', 'ルーデンス', 'コトブキヤ')]);
+  assert.equal(rs[0].status, '重複');
+  assert.equal(rs[1].status, '要確認');
+  assert.equal(rs[1].reason, '名前が似ている');   // DB のキットと似ているだけ
+  assert.deepEqual(rs[1].csvSimilar, []);
 });
 
 // ---------------------------------------------------------------- id・発売月
