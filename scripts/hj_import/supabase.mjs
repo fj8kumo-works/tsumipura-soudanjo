@@ -53,6 +53,17 @@ export function readCsv(file) {
   return body.map((r) => Object.fromEntries(header.map((h, i) => [h, r[i] ?? ''])));
 }
 
+// Excel でそのまま開けるよう UTF-8 BOM付き・CRLF で書く
+export function writeCsv(file, header, records) {
+  const esc = (v) => {
+    const s = v == null ? '' : String(v);
+    return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const lines = [header.map(esc).join(',')];
+  for (const r of records) lines.push(header.map((h) => esc(r[h])).join(','));
+  fs.writeFileSync(file, '﻿' + lines.join('\r\n') + '\r\n', 'utf8');
+}
+
 export function client(url, key) {
   const base = `${url.replace(/\/$/, '')}/rest/v1`;
   const headers = { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' };
@@ -94,6 +105,10 @@ export function client(url, key) {
     async hasRpc(name) {
       const { data } = await request('GET', '');
       return Object.keys(data.paths ?? {}).includes(`/rpc/${name}`);
+    },
+    // 条件に合う行だけ更新する。更新した行を返す
+    async update(table, query, body) {
+      return (await request('PATCH', `${table}?${query}`, { body, prefer: 'return=representation' })).data;
     },
     // 既にある行は変更しない(ON CONFLICT DO NOTHING)
     async insertIgnore(table, rows, onConflict) {

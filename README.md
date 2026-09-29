@@ -19,6 +19,8 @@ supabase/
   migrations/004_hide_kit_source_ref.sql  kits.source_ref(HJ の号・ページ)を匿名から隠す
   tests/003_kit_corrections_check.sql  003 の動作確認用SQL
   tests/004_hide_kit_source_ref_check.sql  004 の動作確認用SQL
+  migrations/005_kit_reminder_source.sql  kits.source に reminder を追加 / 発売月 release_month
+  tests/005_kit_reminder_source_check.sql  005 の動作確認用SQL
 scripts/
   hj_import/build_kits_preview.mjs  HJ作例インデックス → kits / kit_aliases のプレビューCSV
   hj_import/maker_aliases.csv       メーカー表記の対応表
@@ -26,6 +28,9 @@ scripts/
   hj_import/verify_import.mjs       取り込み結果の確認
   hj_import/supabase.mjs            .env・CSV・Supabase REST の共通処理
   admin/apply_kit_corrections.mjs   data/kit_corrections.csv でキットの名前修正・統合(--apply で書き込み)
+  reminder_import/import_reminder.mjs  予約リマインドアプリの CSV → kits(--apply で書き込み)
+  reminder_import/match.mjs            その照合の規則(正規化・新規/重複/要確認の判定)
+  reminder_import/match.test.mjs       照合の規則のテスト
 ```
 
 ---
@@ -94,6 +99,15 @@ select id from auth.users where email = 'admin@example.com';
 
 - 公開用のキー(anon / publishable)では `kits.source_ref` を読めなくなる。ログインした管理者とスクリプト(service_role)は今まで通り読める
 - 列単位の許可なので、**kits に列を足したら、公開してよい列だけ `grant select (列名) on public.kits to anon;` を行う**。また anon で `select('*')` はエラーになるので、画面では必ず列名を指定する
+
+### 9. 予約リマインドアプリからの取り込み準備(005)
+
+1. SQL Editor の New query に `supabase/migrations/005_kit_reminder_source.sql` をすべて貼り付けて **Run**(1回だけ)
+2. 続けて `supabase/tests/005_kit_reminder_source_check.sql` を貼り付けて **Run**。わざとエラーで終わり、`テスト結果: 21件中 NG 0件` なら OK
+3. 既存の機能が壊れていないかも確かめる。`001_init_check.sql`(`74件中 NG 0件 / スキップ 0件`)と `004_hide_kit_source_ref_check.sql`(`13件中 NG 0件`)をそれぞれ Run する
+
+- `kits.source` に使える値が `hj`(HJ 作例)・`user`(利用者が画面から追加)・`reminder`(予約リマインドアプリ)の3つになる。既存の行は変わらない
+- `kits.release_month`(発売月)ができる。その月の1日を入れる(2026年10月なら `2026-10-01`)。公開用のキーでも読める
 
 ---
 
@@ -200,13 +214,49 @@ node scripts/admin/apply_kit_corrections.mjs --apply    書き込む
 
 ---
 
+## 予約リマインドアプリからのキット取り込み
+
+予約リマインドアプリから出力した CSV(列: `kit_name, maker, release_month`)を `kits` に足す。先に 005 を適用し、`.env` を用意しておくこと(上の「準備: .env」と同じもの)。
+
+1. CSV を `data/reminder_export.csv` に置く(`data/` は公開しないので `.gitignore` 済み)
+2. 確認だけ行う(書き込まない):
+   ```
+   node scripts/reminder_import/import_reminder.mjs
+   ```
+   画面に「新規 / 重複 / 要確認」の一覧が出て、同じ内容が `data/reminder_review.csv` に保存される
+3. `data/reminder_review.csv` を Excel で開き、「要確認」の行のうち登録してよいものは「登録」列に `○` を入れて保存する。もう一度 2 を実行して、`[登録: ○]` になったことを確かめる
+4. 一覧が良ければ書き込む:
+   ```
+   node scripts/reminder_import/import_reminder.mjs --apply
+   ```
+   `書き込みました。` と出れば成功
+
+判定のしかた(キット名・メーカーは、全角/半角・大文字/小文字・ひらがな/カタカナ・空白・中黒の違いを無視して比べる):
+
+| 判定 | 条件 | --apply で |
+|---|---|---|
+| 重複 | 名前・メーカー・スケールがすべて一致するキットが DB にある(別名・統合済みキットの名前も含む)。CSV の中で2回目以降に出たキットも重複 | 登録しない。DB の発売月が空なら CSV の発売月を入れる |
+| 要確認 | メーカーが空 / 名前は同じでメーカーかスケールが違う / 名前が似ている(同じメーカーのキットで、片方の名前がもう片方に含まれるなど) | `○` を付けたものだけ登録する |
+| 新規 | 上のどれでもない | 登録する(`source = 'reminder'`) |
+
+- スケールは「1/24」「1:24」「１／２４」「1/24スケール」をすべて `1/24` として扱う。キット名にスケールが書かれていれば取り出して `scale` 列に入れ、名前からは外す
+- メーカー名は `scripts/hj_import/maker_aliases.csv` で表記をそろえる(「バンダイ」→「BANDAI SPIRITS」など)。表記ゆれを見つけたら行を足す
+- 追加だけ行う。既にあるキットの名前などは変えない。キットの id は照合した結果から決まるので、同じ CSV を何度 `--apply` しても二重には登録されない
+- CSV に問題(キット名が空・発売月の形が違うなど)があれば、何も書き込まずに「何が起きたか / どうすれば直るか」を表示して止まる
+- 照合の規則を変えたら、テストを実行する(Node.js だけで動く。「pass 23 / fail 0」なら OK):
+  ```
+  node --test scripts/reminder_import/match.test.mjs
+  ```
+
+---
+
 ## 作ったもの
 
 ### テーブル
 
 | テーブル | 内容 | 匿名ユーザー | 管理者 |
 |---|---|---|---|
-| `kits` | キット | 閲覧・追加(`name` `maker` `scale` のみ指定可) | 閲覧・更新 |
+| `kits` | キット(`source`: hj / user / reminder、`release_month`: 発売月) | 閲覧(`source_ref` 以外)・追加(`name` `maker` `scale` のみ指定可) | 閲覧・更新 |
 | `kit_aliases` | キットの別名 | 閲覧 | 閲覧・更新 |
 | `reviews` | レビュー | `visible` のみ閲覧(`device_id` `user_id` 列は読めない)・投稿 | 全件閲覧・更新 |
 | `review_images` | レビュー画像(最大3枚) | 表示中レビューの分のみ閲覧・投稿直後のレビューに追加 | 全件閲覧・更新 |
